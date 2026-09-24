@@ -23,7 +23,7 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
         // (Seedance: 409,600–927,408 px) and cut anything past the model's max length.
         const px = meta ? meta.w * meta.h : 0;
         const badPx = !!maxPixels && !!meta && (px > maxPixels || px < 409600);
-        const tooLong = !!maxSecs && !!meta && meta.seconds > maxSecs;
+        const tooLong = !!maxSecs && !!meta && meta.seconds > maxSecs - 0.5; // Kie measures length its own way (audio can run long): keep a margin
         if (meta && (badPx || tooLong)) {
           const k = badPx ? Math.sqrt(921600 / px) : Math.min(1, 1920 / Math.max(meta.w, meta.h));
           const w = Math.round((meta.w * k) / 2) * 2, h = Math.round((meta.h * k) / 2) * 2;
