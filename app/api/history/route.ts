@@ -26,7 +26,8 @@ export async function GET() {
       const r = d.resultJson ? JSON.parse(d.resultJson) : {};
       const usd = (i.usd ?? 0) + (d.creditsConsumed ?? 0) * 0.005; // running total across App steps; 1 Kie credit = $0.005
       if (d.state === "fail") return void (done[i.id] = { state: "fail", error: explain(d.failMsg || "Generation failed"), usd });
-      const url: string | undefined = r.resultUrls?.[0];
+      // Most models return resultUrls; others (e.g. Suno) nest the file URL elsewhere, so fall back to the first media URL.
+      const url: string | undefined = r.resultUrls?.[0] ?? String(d.resultJson ?? "").match(/https?:\/\/[^"'\s]+\.(?:mp3|wav|m4a|mp4|mov|webm|png|jpe?g|webp)/i)?.[0];
       const app = i.app && appById(i.app.id);
       if (app && i.app!.step + 1 < stepsOf(app, i.app!.input).length && url) {
         const step = i.app!.step + 1;
