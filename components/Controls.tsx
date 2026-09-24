@@ -2,9 +2,10 @@
 import { useRef, useState } from "react";
 
 // Uploads straight from the browser to our Blob store via a presigned URL (any size), then returns a URL Kie can read.
-export function Upload({ label, accept, value, onChange, optional, maxPixels, maxSecs, minSide, compact }: {
-  label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number) => void;
+export function Upload({ label, accept, value, onChange, optional, maxPixels, maxSecs, minSide, split, compact }: {
+  label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number, part2?: string) => void;
   optional?: boolean; maxPixels?: number; maxSecs?: number; minSide?: number; compact?: boolean;
+  split?: boolean; // videos longer than maxSecs become 2 parts (up to 2× maxSecs) instead of being trimmed
 }) {
   const [status, setStatus] = useState(""); // non-empty while converting/uploading
   const [err, setErr] = useState("");
@@ -30,6 +31,15 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
           const k = badPx ? Math.sqrt(921600 / px) : tooSmall ? minSide! / Math.min(meta.w, meta.h) : Math.min(1, 1920 / Math.max(meta.w, meta.h));
           const w = Math.round((meta.w * k) / 2) * 2, h = Math.round((meta.h * k) / 2) * 2;
           const secs = Math.min(meta.seconds, maxSecs ? maxSecs - 0.5 : Infinity); // margin: the stop timer can run a little late
+          if (split && tooLong) {
+            // Long video: two parts of up to maxSecs each, generated separately and joined afterwards.
+            const len = maxSecs! - 0.5, rest = Math.min(meta.seconds - len, len);
+            const [a, b] = [await resizeVideo(f, w, h, len, (p) => setStatus(`Preparing part 1… ${p}%`)), await resizeVideo(f, w, h, rest, (p) => setStatus(`Preparing part 2… ${p}%`), len)];
+            const [ua, ub] = [await uploadFile(a), await uploadFile(b)];
+            onChange(ua, len + rest, ub);
+            setNote(`Split into 2 parts (${Math.round(len + rest)}s total)`);
+            return;
+          }
           f = await resizeVideo(f, w, h, secs, (p) => setStatus(`${tooLong ? `Trimming to ${maxSecs}s` : `Preparing video`}… ${p}% (keep this tab open)`));
           seconds = secs;
           setNote([tooLong && `Trimmed to first ${maxSecs}s`, (badPx || tooSmall) && `resized to ${w}×${h}`, "30 fps"].filter(Boolean).join(", "));
@@ -38,11 +48,7 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
       // Some models (e.g. Kling Avatar) only take JPG/PNG: convert WebP/AVIF/GIF etc. to JPG first.
       if (f.type.startsWith("image/") && !/^image\/(jpeg|png)$/.test(f.type)) f = await toJpeg(f);
       setStatus("Uploading…");
-      const d = await fetch("/api/upload", { method: "POST", body: JSON.stringify({ name: f.name, type: f.type, size: f.size }) }).then((r) => r.json());
-      if (d.error) throw new Error(d.error);
-      const put = await fetch(d.putUrl, { method: "PUT", body: f, headers: { "Content-Type": f.type } });
-      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
-      onChange(d.getUrl, seconds);
+      onChange(await uploadFile(f), seconds);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -64,6 +70,15 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
   );
 }
 
+// Browser → private Blob store (presigned PUT). Returns a 24h URL that Kie can read.
+export async function uploadFile(f: File | Blob, name = (f as File).name ?? "file"): Promise<string> {
+  const d = await fetch("/api/upload", { method: "POST", body: JSON.stringify({ name, type: f.type, size: f.size }) }).then((r) => r.json());
+  if (d.error) throw new Error(d.error);
+  const put = await fetch(d.putUrl, { method: "PUT", body: f, headers: { "Content-Type": f.type } });
+  if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+  return d.getUrl;
+}
+
 async function toJpeg(f: File): Promise<File> {
   const bmp = await createImageBitmap(f);
   const c = Object.assign(document.createElement("canvas"), { width: bmp.width, height: bmp.height });
@@ -72,48 +87,78 @@ async function toJpeg(f: File): Promise<File> {
   return new File([blob], f.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
 }
 
-// Re-encode a video in the browser (canvas + MediaRecorder, native in Chrome/Edge): resize to w×h, cut at maxSecs, keep audio.
-// ponytail: plays in real time (a 30s clip takes ~30s) and needs MP4 MediaRecorder support; ffmpeg.wasm if other browsers matter.
-async function resizeVideo(f: File, w: number, h: number, maxSecs: number, progress: (pct: number) => void): Promise<File> {
+// Re-encode video in the browser (canvas + MediaRecorder, native in Chrome/Edge): plays each clip (optionally a
+// start–end slice) into one w×h MP4 at a steady 30 fps, keeping audio, plus an optional soundtrack mixed in.
+// Used to resize/trim uploads, split long videos and join clips.
+// ponytail: plays in real time (a 30s result takes ~30s) and needs MP4 MediaRecorder (Chrome/Edge); ffmpeg.wasm if other browsers matter.
+export async function recordClips(clips: { src: string; start?: number; end?: number }[], w: number, h: number, progress: (pct: number) => void, soundtrack?: string): Promise<Blob> {
   const mimeType = ["video/mp4;codecs=avc1.640028,mp4a.40.2", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
-  if (!mimeType) throw new Error("This browser can't convert video. Use Chrome or Edge, or export the video at 720p.");
-  const v = document.createElement("video");
-  v.src = URL.createObjectURL(f);
-  v.playsInline = true;
-  await new Promise((r) => (v.onloadedmetadata = r));
+  if (!mimeType) throw new Error("This browser can't convert video. Use Chrome or Edge.");
+  // Load every clip first so there are no pauses between them.
+  const vids = await Promise.all(clips.map(async (c) => {
+    const v = Object.assign(document.createElement("video"), { crossOrigin: "anonymous", playsInline: true, preload: "auto", src: c.src });
+    await new Promise((ok, fail) => { v.onloadeddata = ok; v.onerror = () => fail(new Error("Couldn't load a clip")); });
+    const start = c.start ?? 0;
+    if (start) { v.currentTime = start; await new Promise((r) => (v.onseeked = r)); }
+    return { v, start, end: Math.min(v.duration, c.end ?? Infinity) };
+  }));
+  const total = vids.reduce((t, c) => t + (c.end - c.start), 0);
   const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
   const ctx = canvas.getContext("2d")!;
-  // Frames are pushed manually at a steady 30 fps (Kie/Seedance needs 23.8–60 fps; screen-repaint timing is uneven).
+  // Frames are pushed manually at a steady 30 fps (Kie models need 24–60 fps; screen-repaint timing is uneven).
   const stream = canvas.captureStream(0);
   const track = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack;
   // Route audio into the recording without playing it out loud.
   const audio = new AudioContext();
   const dest = audio.createMediaStreamDestination();
-  audio.createMediaElementSource(v).connect(dest);
+  vids.forEach(({ v }) => audio.createMediaElementSource(v).connect(dest));
+  let music: HTMLAudioElement | undefined;
+  if (soundtrack) {
+    music = Object.assign(new Audio(), { crossOrigin: "anonymous", src: soundtrack });
+    await new Promise((ok, fail) => { music!.oncanplay = ok; music!.onerror = () => fail(new Error("Couldn't load the soundtrack")); });
+    audio.createMediaElementSource(music).connect(dest);
+  }
   dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
   const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 });
   const chunks: Blob[] = [];
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const done = new Promise((r) => (rec.onstop = r));
-  const end = Math.min(v.duration, maxSecs);
-  const finish = () => { if (rec.state === "recording") { v.pause(); rec.stop(); } };
+  let k = 0, before = 0; // current clip, seconds recorded before it
+  const draw = (v: HTMLVideoElement) => { // letterbox: fit the clip inside the frame
+    const s = Math.min(w / v.videoWidth, h / v.videoHeight), dw = v.videoWidth * s, dh = v.videoHeight * s;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h); ctx.drawImage(v, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  };
   // Clock runs in a Worker: page timers get throttled to 1/s in background tabs, worker timers don't.
   const clock = new Worker(URL.createObjectURL(new Blob(["setInterval(() => postMessage(0), 1000 / 30)"], { type: "text/javascript" })));
   clock.onmessage = () => {
     if (rec.state !== "recording") return;
-    ctx.drawImage(v, 0, 0, w, h);
+    const c = vids[k];
+    draw(c.v);
     track.requestFrame();
-    progress(Math.min(99, Math.round((v.currentTime / end) * 100)));
-    if (v.currentTime >= end) finish();
+    progress(Math.min(99, Math.round(((before + c.v.currentTime - c.start) / total) * 100)));
+    if (c.v.currentTime >= c.end || c.v.ended) {
+      c.v.pause();
+      before += c.end - c.start;
+      if (++k < vids.length) vids[k].v.play(); else { music?.pause(); rec.stop(); }
+    }
   };
-  v.onended = finish;
   rec.start(1000);
-  await v.play();
+  music?.play();
+  await vids[0].v.play();
   await done;
   clock.terminate();
   audio.close();
-  URL.revokeObjectURL(v.src);
-  return new File(chunks, f.name.replace(/\.\w+$/, "") + "-720p.mp4", { type: "video/mp4" });
+  return new Blob(chunks, { type: "video/mp4" });
+}
+
+async function resizeVideo(f: File, w: number, h: number, maxSecs: number, progress: (pct: number) => void, start = 0): Promise<File> {
+  const src = URL.createObjectURL(f);
+  try {
+    const blob = await recordClips([{ src, start, end: start + maxSecs }], w, h, progress);
+    return new File([blob], f.name.replace(/\.\w+$/, "") + (start ? `-part2` : "") + "-720p.mp4", { type: "video/mp4" });
+  } finally {
+    URL.revokeObjectURL(src);
+  }
 }
 
 function videoMeta(f: File): Promise<{ w: number; h: number; seconds: number } | undefined> {

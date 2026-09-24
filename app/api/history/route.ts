@@ -1,6 +1,6 @@
 import { kie } from "@/lib/kie";
-import { appById, appStep, stepsOf } from "@/lib/apps";
-import { runModel } from "@/lib/run";
+import { appById, stepsOf } from "@/lib/apps";
+import { advance } from "@/lib/run";
 import { mutate, readHistory } from "@/lib/store";
 import type { Item } from "@/lib/history";
 
@@ -31,10 +31,9 @@ export async function GET() {
       const app = i.app && appById(i.app.id);
       if (app && i.app!.step + 1 < stepsOf(app, i.app!.input).length && url) {
         const step = i.app!.step + 1;
-        const { m, params } = appStep(app, step, i.app!.input, url);
         try {
-          const next = await runModel(m, params);
-          done[i.id] = next.url ? { state: "success", url: next.url, usd } : { taskId: next.taskId, app: { ...i.app!, step }, usd };
+          // Runs any instant steps and starts the next Kie task (or finishes).
+          done[i.id] = { ...(await advance(app, i.app!.input, step, url, i.app!.notes)), usd };
         } catch (e) {
           done[i.id] = { state: "fail", error: `Step ${step + 1} failed: ${(e as Error).message}`, url, usd };
         }

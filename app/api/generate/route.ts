@@ -1,45 +1,59 @@
 import { byId, type Params } from "@/lib/models";
 import { appById, appStep, type AppInput } from "@/lib/apps";
-import { runModel, validate } from "@/lib/run";
+import { advance, runModel, validate } from "@/lib/run";
 import { mutate } from "@/lib/store";
+import type { Item } from "@/lib/history";
 
-// Body: { modelId, params } for the studio, or { appId, input } for an App (runs its first step).
+// Body: { modelId, params } for the studio, or { appId, input } for an App.
 export async function POST(req: Request) {
-  const body = (await req.json()) as { modelId?: string; params?: Params; appId?: string; input?: AppInput };
+  const body = (await req.json()) as { modelId?: string; params?: Params; appId?: string; input?: AppInput; group?: string; label?: string };
   const app = body.appId ? appById(body.appId) : undefined;
   if (body.appId && !app) return Response.json({ error: "Unknown app" }, { status: 400 });
+  const items: Item[] = [];
 
-  let m, params: Params;
-  if (app) {
-    const missing = app.inputs.find(([k]) => !body.input?.[k]);
-    if (!app.inputs.length && app.optional && !app.optional.some(([k]) => body.input?.[k]) && !body.input?.text?.trim())
-      return Response.json({ error: "Add a photo or describe the shot" }, { status: 400 });
-    if (missing) return Response.json({ error: `${app.name} needs ${missing[1]}` }, { status: 400 });
-    if (app.text && !app.text.optional && !body.input?.text?.trim()) return Response.json({ error: `${app.text.label} is required` }, { status: 400 });
-    ({ m, params } = appStep(app, 0, body.input!));
-  } else {
-    m = byId(body.modelId ?? "");
-    if (!m) return Response.json({ error: "Unknown model" }, { status: 400 });
-    params = body.params!;
-    const err = validate(m, params);
-    if (err) return Response.json({ error: err }, { status: 400 });
-  }
-
-  let run;
   try {
-    run = await runModel(m, params);
+    if (app) {
+      const input = body.input ?? {};
+      const missing = app.inputs.find(([k]) => !input[k]);
+      if (missing) return Response.json({ error: `${app.name} needs ${missing[1]}` }, { status: 400 });
+      if (!app.inputs.length && app.optional && !app.optional.some(([k]) => input[k]) && !input.text?.trim())
+        return Response.json({ error: "Add a photo or describe the shot" }, { status: 400 });
+      if (app.text && !app.text.optional && !input.text?.trim()) return Response.json({ error: `${app.text.label} is required` }, { status: 400 });
+
+      const id = crypto.randomUUID();
+      const r = await advance(app, input, 0);
+      items.push({ id, kind: app.out, modelId: appStep(app, 0, input).m.id, modelName: app.name, prompt: input.text || app.name, createdAt: Date.now(), ...r, usd: r.state === "success" ? 0 : undefined });
+      // Storyboard-style apps: start one extra job per scene, grouped under this item.
+      if (r.state === "success" && app.fanout) {
+        items[0].group = id;
+        for (const kid of app.fanout(input, r.text ?? "")) {
+          const ka = appById(kid.appId)!;
+          const kr = await advance(ka, kid.input, 0);
+          items.push({ id: crypto.randomUUID(), kind: ka.out, modelId: appStep(ka, 0, kid.input).m.id, modelName: `${app.name} · ${kid.label}`, prompt: kid.input.text || kid.label, group: id, createdAt: items[0].createdAt - items.length, ...kr, usd: kr.state === "success" ? 0 : undefined });
+        }
+      }
+    } else {
+      const m = byId(body.modelId ?? "");
+      if (!m) return Response.json({ error: "Unknown model" }, { status: 400 });
+      const params = body.params!;
+      const err = validate(m, params);
+      if (err) return Response.json({ error: err }, { status: 400 });
+      const r = await runModel(m, params);
+      items.push({
+        id: crypto.randomUUID(), kind: m.output ?? (m.mode === "image" ? "image" : "video"), modelId: m.id,
+        modelName: body.label ? `${m.name} · ${body.label}` : m.name, prompt: params.prompt, params, group: body.group,
+        taskId: r.taskId, url: r.url, text: r.text, state: r.taskId ? "pending" : "success", usd: r.taskId ? undefined : 0, createdAt: Date.now(),
+      });
+    }
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 502 });
+    if (!items.length) return Response.json({ error: (e as Error).message }, { status: 502 });
   }
-  // The Kie task already exists (and costs money): if saving fails, say so loudly with its id.
-  try { await mutate((all) => [{
-    id: crypto.randomUUID(),
-    kind: app?.out ?? m.output ?? (m.mode === "image" ? "image" : "video"),
-    modelId: m.id, modelName: app?.name ?? m.name, prompt: app ? body.input?.text || app.name : params.prompt,
-    taskId: run.taskId, url: run.url, state: run.url ? "success" : "pending", usd: run.url ? 0 : undefined, createdAt: Date.now(),
-    ...(app ? { app: { id: app.id, input: body.input!, step: 0 } } : { params }),
-  }, ...all]); } catch (e) {
-    return Response.json({ error: `Started (Kie task ${run.taskId}) but couldn't save it to History: ${(e as Error).message}` }, { status: 500 });
+
+  // Kie tasks already exist (and cost money): if saving fails, say so loudly with their ids.
+  try {
+    await mutate((all) => [...items.slice().reverse(), ...all].sort((a, b) => b.createdAt - a.createdAt));
+  } catch (e) {
+    return Response.json({ error: `Started (${items.map((i) => i.taskId).join(", ")}) but couldn't save to History: ${(e as Error).message}` }, { status: 500 });
   }
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, ids: items.map((i) => i.id) });
 }

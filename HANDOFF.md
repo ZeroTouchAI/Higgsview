@@ -28,6 +28,8 @@ Higgsview is a personal, single-user clone of the higgsfield.ai studio. The prio
 | `lib/run.ts` | `runModel()` and `validate()`, shared by generate (first step) and history (next steps) |
 | `app/apps`, `app/apps/[id]` | Apps gallery (categories, search) and the app runner page |
 | `components/Controls.tsx` | `Upload` (presigned Blob upload plus auto-resize of videos) and `Chip` |
+| `app/join` | Join Clips (stitch videos + soundtrack in the browser) |
+| `app/api/file` | Streams private Blob files (joined videos) with a permanent link |
 | `components/Feed.tsx` | Results grid and the "How it works" empty state |
 | `app/page.tsx` | Explore/landing (hero prompt bar and model cards) |
 | `docs/RESEARCH.md` | Higgsfield UI/feature map, model ids and pricing |
@@ -103,6 +105,29 @@ Done and verified locally:
 - `/profile`: first/last name, username, email (`profile.json` in Blob via `/api/account`), plus Change password (`/api/account/password`).
 - **Password:** `lib/auth.ts`. The active hash is `auth.json` in Blob if set, else `sha256(APP_PASSWORD)`. `proxy.ts` compares the `hv_auth` cookie to it (60s cache per instance). Changing the password logs out other browsers.
 - ⚠ Local dev shares the Blob store: changing the password locally changes the live password.
+
+## Everything from Upcoming built (2026-09-24, all 110 items)
+Tracker after the build: Apps 92 built · Effects 87 built · Features 62 built / 56 ignored (6 with reasons: Sora 2 and Recraft V4 aren't on Kie; no voice-cloning model on Kie; App Builder / Games / Supercomputer aren't media tools). `KNOWN` in lib/upcoming.ts maps each product page → the Higgsview feature that covers it; forced scans re-check todo items.
+- **Engine** (`lib/run.ts`):
+  - `TOOLS` = instant server-side steps: `gemini-text` (Kie Gemini 3.7 Flash chat, OpenAI format at `/gemini-3-7-flash-openai/v1/chat/completions`; media as `image_url` parts, video/audio included) and `page-brief` (fetches a URL, gives the page text to Gemini, returns text + og:image).
+  - `advance(app, input, step, prev, notes)` runs instant steps back to back and stops at the first Kie task; the history poller resumes it. Steps get `(input, prev, notes)`; `notes` = the last text output.
+  - `jsonOf()` pulls JSON out of AI answers.
+- **Fan-out:** apps with `fanout(input, notes)` (Script to Video, URL to Video, Explainer) create one History item per scene via hidden apps `scene-shot` / `narration`, grouped with `group` = parent id. Feed shows "⧉ Join scenes".
+- **Join Clips** (`/join`, `recordClips()` in Controls.tsx):
+  - Stitches videos in the browser at 30 fps (letterboxed), with an optional soundtrack.
+  - Uploads the result to Blob and saves it as `/api/file?p=uploads/…` (permanent, login-protected stream). Drive export presigns it (`lib/blobUrl.ts`).
+  - Tested: 5s + 6s → 11.3s 1280×720.
+- **Long Genjutsu (30s):** `videoSplit` on `genjutsu-kling`. The upload tile splits videos over 15s into 2 parts; Generate runs 2 grouped jobs ("Part 1/2", "Part 2/2") → Join. Tested the split (32s → 2 × 14.5s).
+- **New models:** Wan 2.6, Grok Imagine 1.5 (`generated/grok-imagine-video-1.5-preview`), MiniMax H3 (t2v/i2v), Gemini Omni Flash 1.1, and the tool Volcengine lip-sync. Prices are **estimates**.
+- **New apps:**
+  - 34 new effects (EFFECTS: `[slug, name, motion, look?]`; `look` = restyle the photo first, used for the split-screen paintings)
+  - 34 Mixed Media styles (`MIXED`: restyle an uploaded video with Kling Omni, or animate a photo)
+  - The 12 Higgsfield apps (ids = Higgsfield slugs)
+  - Soul, AI Influencer, Clothes/Hairstyle Changer
+  - Remove Object/Text from Video, Video Background Changer/Remover (Kling Omni)
+  - Virality Predictor, Breakdown, Click to Ad, URL to Video, Script to Video, Explainer, Video Translator, Voice Changer (text AI → Gemini TTS → lip-sync)
+- **NOT live-tested** (the test browser wasn't logged in and paid tests need the owner's login): all new models and apps above, including the Gemini text calls. Lip-sync assumes Kie accepts the Gemini TTS audio (wav). If something fails, the History card shows Kie's error; `/api/raw?id=<taskId>` shows the raw task.
+- **Thumbnails for the ~100 new apps aren't generated yet** (needs login; ~$2.50 with FLUX). Cards fall back to a gradient and icon.
 
 ## Upcoming tracker and app thumbnails (added 2026-09-24)
 - **Upcoming** (`/upcoming`, `lib/upcoming.ts`, `app/api/upcoming`): reads Higgsfield's public sitemaps (`/apps/sitemap.xml`, `/effects/sitemap.xml`, `/sitemap-marketing.xml`) and stores `upcoming.json` in Blob. The Nav calls `GET /api/upcoming` on every app open; the server re-scans only if the last check is over 24h old ("Check now" forces it).

@@ -8,7 +8,6 @@ import type { Profile } from "@/lib/auth";
 const KIE: [string, string, string][] = [
   ["API Keys", "https://kie.ai/api-key", "M15 7a4 4 0 1 1-3.8 5.2L4 19.5V22h3v-2h2v-2h2l1.2-1.2A4 4 0 0 1 15 7Z"],
   ["Billing", "https://kie.ai/billing", "M3 6h18v12H3zM3 10h18"],
-  ["Usage", "https://kie.ai/usage", "M4 20V10m6 10V4m6 16v-7m6 7v-11"],
   ["Logs", "https://kie.ai/logs", "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"],
   ["Pricing", "https://kie.ai/pricing", "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8ZM7.5 7.5h.01"],
   ["Model Market", "https://kie.ai/market", "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],

@@ -51,6 +51,7 @@ export default function UpcomingPage() {
                   <span className="w-16 shrink-0 text-[11px] font-semibold text-muted uppercase">{t.kind}</span>
                   <a href={t.url} target="_blank" rel="noreferrer" className="font-semibold hover:text-lime">{t.name} ↗</a>
                   {status === "new" && <span className="text-xs text-muted">seen {new Date(t.firstSeen).toLocaleDateString()}</span>}
+                  {t.note && <span className="text-xs text-muted">— {t.note}</span>}
                   <span className="ml-auto flex gap-1 text-xs">
                     {(["built", "todo", "ignored"] as Status[]).filter((s) => s !== status).map((s) => (
                       <button key={s} onClick={() => mark(path, s)} className="rounded bg-chip px-2 py-1 capitalize hover:text-lime">{s === "todo" ? "To build" : s === "built" ? "Mark built" : "Ignore"}</button>

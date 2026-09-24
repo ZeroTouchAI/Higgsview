@@ -1,11 +1,17 @@
 "use client";
 import Link from "next/link";
 import Badge from "@/components/Badge";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { APPS, CATEGORIES } from "@/lib/apps";
 
 export default function AppsPage() {
-  const [cat, setCat] = useState<keyof typeof CATEGORIES | "all">("all");
+  return <Suspense><Gallery /></Suspense>;
+}
+
+function Gallery() {
+  const initial = useSearchParams().get("cat");
+  const [cat, setCat] = useState<keyof typeof CATEGORIES | "all">(initial && initial in CATEGORIES ? (initial as keyof typeof CATEGORIES) : "all");
   const [q, setQ] = useState("");
   const cats = (Object.keys(CATEGORIES) as (keyof typeof CATEGORIES)[]).filter((c) => cat === "all" || c === cat);
   const match = (a: (typeof APPS)[number]) => (a.name + a.desc).toLowerCase().includes(q.toLowerCase());
@@ -27,7 +33,7 @@ export default function AppsPage() {
         ))}
       </nav>
       {cats.map((c) => {
-        const apps = APPS.filter((a) => a.cat === c && match(a));
+        const apps = APPS.filter((a) => a.cat === c && !a.hidden && match(a));
         if (!apps.length) return null;
         return (
           <section key={c} className="flex flex-col gap-3">
@@ -37,7 +43,7 @@ export default function AppsPage() {
                 <Link key={a.id} href={`/apps/${a.id}`} className="group flex flex-col overflow-hidden rounded-2xl bg-panel hover:ring-2 hover:ring-lime">
                   <div className="relative grid aspect-[4/3] place-items-center overflow-hidden text-4xl"
                     style={{ background: `linear-gradient(145deg, hsl(${[...a.id].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360} 45% 24%), #101010)` }}>
-                    <span aria-hidden>{a.out === "video" ? "▶" : a.out === "audio" ? "♪" : "◼"}</span>
+                    <span aria-hidden>{a.out === "video" ? "▶" : a.out === "audio" ? "♪" : a.out === "text" ? "✦" : "◼"}</span>
                     {/* Preview image (public/thumbs/<id>.jpg); hides itself if missing so the colored card shows. */}
                     <img src={`/thumbs/${a.id}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-cover transition-transform group-hover:scale-105"
                       onError={(e) => (e.currentTarget.style.display = "none")} />

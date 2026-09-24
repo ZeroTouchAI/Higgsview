@@ -4,6 +4,7 @@ import { MODELS } from "../lib/models.ts";
 
 const ids = new Set<string>();
 for (const m of MODELS) {
+  if (m.output === "text") continue; // text-AI tools run server-side (lib/run.ts TOOLS), not via build()
   assert(!ids.has(m.id), `duplicate id ${m.id}`);
   ids.add(m.id);
   assert(m.name && m.aspects.length && m.resolutions.length, `${m.id}: missing options`);
@@ -32,3 +33,14 @@ for (const app of APPS) {
   });
 }
 console.log(`ok — ${APPS.length} apps`);
+
+// Storyboard parsing: AI answers often wrap JSON in prose/code fences.
+import { jsonOf, appById } from "../lib/apps.ts";
+assert.deepEqual(jsonOf('Sure!\n```json\n{"scenes":[{"shot":"a","line":""}]}\n```'), { scenes: [{ shot: "a", line: "" }] });
+assert.deepEqual(jsonOf("no json here"), {});
+const kids = appById("script-to-video")!.fanout!({ tier: "draft" }, '{"scenes":[{"shot":"s1","line":"hi"},{"shot":"s2","line":""}]}');
+assert.equal(kids.length, 2);
+assert.ok(kids[0].input.text!.includes('"hi"') && kids.every((k) => appById(k.appId)));
+const url = appById("url-to-video")!.fanout!({}, '{"narration":"n","scenes":["a","b","c"]}');
+assert.deepEqual(url.map((k) => k.appId), ["scene-shot", "scene-shot", "scene-shot", "narration"]);
+console.log("ok — storyboard fan-out");

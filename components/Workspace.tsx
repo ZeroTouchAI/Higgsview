@@ -9,7 +9,7 @@ import { Chip, Upload } from "@/components/Controls";
 
 const TABS: [Mode, string][] = [["create", "Create"], ["edit", "Edit"], ["motion", "Motion Control"], ["swap", "Genjutsu"]];
 const TIER_LABEL = { free: "Free", budget: "Budget", standard: "Standard", premium: "Premium" };
-type Media = { start?: string; end?: string; video?: string; videoSecs?: number };
+type Media = { start?: string; end?: string; video?: string; video2?: string; videoSecs?: number };
 
 export default function Workspace({ kind }: { kind: "video" | "image" | "audio" }) {
   const sp = useSearchParams();
@@ -53,8 +53,15 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
       start: media.start, end: media.end, video: media.video, refs, taskId: extendFrom?.taskId,
     };
     try {
-      const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify({ modelId: model.id, params }) }).then((r) => r.json());
-      if (d.error) throw new Error(d.error);
+      // A long video split into 2 parts: generate both as one group (then "Join" them in History).
+      const jobs = media.video2
+        ? [{ video: media.video, label: "Part 1/2" }, { video: media.video2, label: "Part 2/2" }]
+        : [{ video: media.video, label: undefined }];
+      const group = media.video2 ? crypto.randomUUID() : undefined;
+      for (const j of jobs) {
+        const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify({ modelId: model.id, params: { ...params, video: j.video }, group, label: j.label }) }).then((r) => r.json());
+        if (d.error) throw new Error(d.error);
+      }
       setExtendFrom(undefined);
       await refreshHistory();
     } catch (e) {
@@ -107,8 +114,8 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
         {(model.frames !== "none" || model.needs?.includes("video")) && (
           <div className="grid grid-cols-2 gap-2">
             {model.needs?.includes("video") && (
-              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs} minSide={model.videoMinSide}
-                onChange={(video, videoSecs) => setMedia((m) => ({ ...m, video, videoSecs }))} />
+              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs} minSide={model.videoMinSide} split={model.videoSplit}
+                onChange={(video, videoSecs, video2) => setMedia((m) => ({ ...m, video, videoSecs, video2 }))} />
             )}
             {model.frames !== "none" && (
               <Upload label={label("start", kind === "image" ? "Reference" : "Start frame")} accept="image/*"

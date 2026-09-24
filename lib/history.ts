@@ -6,7 +6,7 @@ import type { Params } from "@/lib/models";
 // History lives server-side (Vercel Blob, see lib/store.ts) so every device sees the same list.
 export type Item = {
   id: string;
-  kind: "video" | "image" | "audio";
+  kind: "video" | "image" | "audio" | "text";
   modelId: string;
   modelName: string;
   prompt: string;
@@ -17,7 +17,9 @@ export type Item = {
   error?: string;
   usd?: number;
   driveLink?: string; // set after "Export to Drive"
-  app?: { id: string; input: AppInput; step: number }; // multi-step App progress
+  app?: { id: string; input: AppInput; step: number; notes?: string }; // multi-step App progress (notes = text from earlier steps)
+  text?: string; // text result (analysis, storyboard, transcript)
+  group?: string; // items made together (script scenes, long-video parts); Feed offers "Join"
   params?: Params; // exact settings of a studio generation (used by "Regenerate")
   hidden?: boolean; // "deleted" from History but kept so Spending stays accurate
   createdAt: number;

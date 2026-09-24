@@ -80,7 +80,7 @@ export default function SpendPage() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Bars title="By tool / app" rows={breakdown(paid, (i) => i.modelName)} />
-        <Bars title="By type" rows={breakdown(paid, (i) => ({ video: "Video", image: "Image", audio: "Audio" })[i.kind])} />
+        <Bars title="By type" rows={breakdown(paid, (i) => ({ video: "Video", image: "Image", audio: "Audio", text: "Text AI" })[i.kind])} />
       </div>
 
       <section className="overflow-x-auto rounded-2xl bg-panel p-4">

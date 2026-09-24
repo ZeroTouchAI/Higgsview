@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { refreshHistory, removeItem, type Item } from "@/lib/history";
+import Link from "next/link";
 import { appById, stepsOf } from "@/lib/apps";
 
 type Act = ((i: Item) => void) | undefined;
@@ -11,7 +12,9 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
       {items.map((i) => (
         <figure key={i.id} className="overflow-hidden rounded-xl bg-panel">
           <div className="relative grid aspect-video place-items-center bg-black">
-            {i.state === "success" && i.url ? (
+            {i.state === "success" && i.kind === "text" ? (
+              <div className="absolute inset-0 overflow-y-auto p-3 text-left text-[13px] leading-relaxed whitespace-pre-wrap text-fg/90">{i.text || "(no answer)"}</div>
+            ) : i.state === "success" && i.url ? (
               i.kind === "audio" ? <audio src={i.url} controls className="w-11/12" />
               : i.kind === "video" ? <video src={i.url} controls loop playsInline className="size-full object-contain" />
                 : <RetryImg src={i.url} alt={i.prompt} />
@@ -27,7 +30,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
           <figcaption className="flex flex-col gap-2 p-3 text-xs">
             <div className="flex items-start gap-2">
               <p className="line-clamp-2 flex-1 text-fg/80" title={i.prompt}>{i.prompt}</p>
-              <CopyButton text={i.prompt} />
+              <CopyButton text={i.kind === "text" && i.text ? i.text : i.prompt} />
               {(i.params || i.app) && <RegenButton item={i} />}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-muted">
@@ -38,6 +41,8 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
                 {onReuse && <button onClick={() => onReuse(i)} className="rounded bg-chip px-2 py-1 hover:text-fg">Reuse</button>}
                 {onContinue && i.lastFrame && <button onClick={() => onContinue(i)} title="Start a new clip from this clip's last frame" className="rounded bg-chip px-2 py-1 hover:text-fg">Continue →</button>}
                 {onExtend && i.state === "success" && i.modelId.startsWith("grok") && <button onClick={() => onExtend(i)} title="Add 6-10s to this video" className="rounded bg-chip px-2 py-1 hover:text-fg">Extend +</button>}
+                {i.group && i.group === i.id && <Link href={`/join?group=${i.group}`} className="rounded-md bg-lime px-2 py-1 font-semibold text-black hover:brightness-110">⧉ Join scenes</Link>}
+                {i.group && i.group !== i.id && i.kind === "video" && <Link href={`/join?group=${i.group}`} className="rounded bg-chip px-2 py-1 hover:text-fg">⧉ Join</Link>}
                 {i.url && <DownloadButton item={i} />}
                 {i.url && <DriveButton item={i} />}
                 <button onClick={() => confirm("Delete this from history?") && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>

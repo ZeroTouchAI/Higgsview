@@ -35,13 +35,14 @@ export type Model = {
   needs?: ("start" | "end" | "video")[]; // required inputs
   labels?: Partial<Record<"start" | "end" | "video", string>>; // upload tile labels
   promptOptional?: boolean;
-  output?: "image" | "audio"; // model whose result isn't a video
+  output?: "image" | "audio" | "text"; // model whose result isn't a video
   refs?: number; // max extra reference images
   resLabel?: string; // label for the resolutions chip (e.g. "Voice", "Quality")
   defaultRes?: string; // default chip value (otherwise the last = best)
   videoMaxPixels?: number; // input video must be at most this many pixels (w×h)
   videoMaxSecs?: number; // longer input videos are trimmed in the browser before upload
   videoMinSide?: number; // smaller input videos are upscaled in the browser (and re-encoded at 30 fps)
+  videoSplit?: boolean; // videos up to 2× videoMaxSecs are split into 2 parts, generated separately, then joined
   // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
   // (480p/720p, no audio); higher quality or audio costs more. Real cost comes back from Kie per item.
   usdPerSec?: number | Record<string, number>; // flat rate, or per resolution
@@ -188,6 +189,37 @@ export const MODELS: Model[] = [
     }),
   },
   {
+    id: "wan-2-6", name: "Wan 2.6", mode: "create", tier: "budget", usdPerSec: 0.08, // estimate (Wan 2.7 rate)
+    desc: "15-second cinematic videos with native lip-sync and accurate physics. Multi-shot storytelling.",
+    durations: [5, 10, 15], aspects: ["auto"], resolutions: ["720p", "1080p"], defaultRes: "720p", frames: "start",
+    build: (p) => p.start
+      ? { model: "wan/2-6-image-to-video", input: { prompt: p.prompt, image_urls: [p.start], duration: String(p.duration), resolution: p.resolution, multi_shots: p.duration > 5 } }
+      : { model: "wan/2-6-text-to-video", input: { prompt: p.prompt, duration: String(p.duration), resolution: p.resolution, multi_shots: p.duration > 5 } },
+  },
+  {
+    id: "grok-imagine-1-5", name: "Grok Imagine 1.5", badge: "NEW", mode: "create", tier: "budget", usdPerSec: { "480p": 0.012, "720p": 0.025, "1080p": 0.05 }, // estimate
+    desc: "One still image or a prompt into a cinematic clip with camera moves, physics and sound. Up to 15s.",
+    durations: [6, 8, 10, 15], aspects: ["16:9", "9:16", "1:1", "3:2", "2:3"], resolutions: ["480p", "720p", "1080p"], defaultRes: "720p", frames: "start",
+    build: (p) => ({ model: "generated/grok-imagine-video-1.5-preview", input: { prompt: p.prompt, ...(p.start ? { image_urls: [p.start] } : { aspect_ratio: p.aspect }), resolution: p.resolution, duration: p.duration } }),
+  },
+  {
+    id: "minimax-h3", name: "MiniMax H3", badge: "NEW", mode: "create", tier: "standard", usdPerSec: { "768P": 0.06, "2K": 0.12 }, // estimate
+    desc: "2K video with native stereo sound, from text or start/end keyframes. 4–15 seconds.",
+    durations: [6, 10, 15], aspects: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"], resolutions: ["768P", "2K"], defaultRes: "768P", frames: "start-end",
+    build: (p) => p.start || p.end
+      ? { model: "minimax-h3/image-to-video", input: { prompt: p.prompt, first_frame_url: p.start, last_frame_url: p.end, duration: String(p.duration), resolution: p.resolution } }
+      : { model: "minimax-h3/text-to-video", input: { prompt: p.prompt, aspect_ratio: p.aspect, duration: String(p.duration), resolution: p.resolution } },
+  },
+  {
+    id: "gemini-omni", name: "Gemini Omni Flash", badge: "NEW", mode: "create", tier: "standard", usdPerSec: { "720p": 0.08, "1080p": 0.12 }, // estimate
+    desc: "Google's multi-shot video with native audio. Use reference images for characters and products.",
+    durations: [4, 6, 8, 10], aspects: ["16:9", "9:16"], resolutions: ["720p", "1080p"], defaultRes: "720p", frames: "start-end", refs: 4,
+    build: (p) => ({
+      model: "google/gemini-omni-flash-1-1",
+      input: { prompt: p.prompt, first_frame_url: p.start, last_frame_url: p.end, image_urls: p.refs?.length ? p.refs : undefined, duration: String(p.duration), aspect_ratio: p.aspect, resolution: p.resolution },
+    }),
+  },
+  {
     id: "hailuo-2-3", name: "Minimax Hailuo 2.3", mode: "create", tier: "budget", usdFlat: 0.15,
     desc: "Image-to-video with strong physics. Requires a start frame.",
     durations: [6, 10], aspects: ["auto"], resolutions: ["768P"],
@@ -237,9 +269,9 @@ export const MODELS: Model[] = [
   {
     id: "genjutsu-kling", name: "Genjutsu · Real People (Kling Omni)", badge: "NEW", mode: "swap", tier: "premium",
     usdPerSec: { "720p": 0.1, "1080p": 0.15 }, // 720p measured 2026-09-24: 5s = $0.50; 1080p estimated
-    desc: "Swap people, outfits, products or the whole look in your video — works with real people. Say what to change; refer to your photos as “the person in image 1”. Video: 3–15s.",
+    desc: "Swap people, outfits, products or the whole look in your video — works with real people. Say what to change; refer to your photos as “the person in image 1”. Videos over 15s (up to 30s) are split into 2 parts — Join them after.",
     durations: [-1], aspects: ["9:16", "16:9", "1:1"], resolutions: ["720p", "1080p"], defaultRes: "720p", audio: true,
-    frames: "none", refs: 4, needs: ["video"], videoMaxSecs: 15, videoMinSide: 720,
+    frames: "none", refs: 4, needs: ["video"], videoMaxSecs: 15, videoMinSide: 720, videoSplit: true,
     labels: { video: "Reference video" },
     build: (p) => ({
       model: "kling-3.0-omni/transformation",
@@ -346,6 +378,24 @@ export const MODELS: Model[] = [
     build: (p) => ({ model: "ai-music-api/sounds", input: { prompt: p.prompt, model: "V6" } }),
   },
 
+  {
+    id: "gemini-text", name: "Gemini (text AI)", mode: "tool", output: "text", tier: "budget", usdFlat: 0.002,
+    desc: "Reads text, images, video or audio and writes an answer. Runs instantly (see lib/run.ts TOOLS).",
+    durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
+    build: () => ({ model: "gemini-text", input: {} }), // not used: runs through TOOLS
+  },
+  {
+    id: "page-brief", name: "Web page reader", mode: "tool", output: "text", tier: "budget", usdFlat: 0.002,
+    desc: "Fetches a web page and has the text AI summarize it (see lib/run.ts TOOLS).",
+    durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
+    build: () => ({ model: "page-brief", input: {} }), // not used: runs through TOOLS
+  },
+  {
+    id: "lipsync-video", name: "Volcengine Lip Sync", mode: "tool", tier: "standard", usdFlat: 0.3, // estimate
+    desc: "Re-syncs the lips in a video to a new voice track.", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none", needs: ["video"], promptOptional: true,
+    build: (p) => ({ model: "volcengine/video-to-video-lip-sync", input: { mode: "lite", video_url: p.video, audio_url: p.audioUrl, align_audio: true } }),
+  },
+
   // ---------- IMAGE ----------
   {
     id: "nano-banana-2", name: "Nano Banana 2", badge: "TOP", mode: "image", tier: "standard", usdFlat: 0.04,
@@ -362,7 +412,7 @@ export const MODELS: Model[] = [
     desc: "Google's best 4K image model: text rendering, product shots, precise edits.",
     durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "4:5", "21:9", "auto"], resolutions: ["1K", "2K", "4K"], defaultRes: "2K",
     frames: "start",
-    build: (p) => ({ model: "nano-banana-pro", input: { prompt: p.prompt, image_input: [p.start, ...(p.refs ?? [])].filter(Boolean), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" } }),
+    build: (p) => ({ model: "nano-banana-pro", input: { prompt: p.prompt, image_input: [p.start, p.end, ...(p.refs ?? [])].filter(Boolean), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" } }),
   },
   {
     id: "gpt-image-2", name: "GPT Image 2", mode: "image", tier: "standard", usdFlat: 0.06,

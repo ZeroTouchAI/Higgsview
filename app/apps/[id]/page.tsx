@@ -16,7 +16,9 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [picker, setPicker] = useState(false);
-  const items = useHistory().filter((i) => i.app?.id === id);
+  const all = useHistory();
+  const mine = new Set(all.filter((i) => i.app?.id === id).map((i) => i.id));
+  const items = all.filter((i) => mine.has(i.id) || (i.group && mine.has(i.group)));
   if (!app) return <p className="p-8">App not found. <Link href="/apps" className="text-lime">Back to Apps</Link></p>;
 
   const set = (patch: Partial<AppInput>) => setInput((i) => ({ ...i, ...patch }));
@@ -24,7 +26,7 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
   const hasVideoStep = steps.some((s) => byId(s(input, "x").modelId)?.mode === "create");
   const choice = input.choice ?? app.choice?.options[0];
   // The model that receives the uploaded video decides its size/length limits (auto-fixed in the browser).
-  const videoModel = steps.map((s) => byId(s(input, "x").modelId)).find((m) => m?.needs?.includes("video"));
+  const videoModel = stepsOf(app, { ...input, video: input.video ?? "x" }).map((s) => byId(s({ ...input, video: "x" }, "x").modelId)).find((m) => m?.needs?.includes("video"));
   const cost = appCost(app, { ...input, choice });
   const ready = app.inputs.every(([k]) => input[k]) && (!app.text || app.text.optional || input.text?.trim())
     && (app.inputs.length > 0 || !app.optional || app.optional.some(([k]) => input[k]) || !!input.text?.trim());
@@ -93,14 +95,14 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
         <div className="sticky bottom-0 -mx-3 -mb-3 mt-auto flex flex-col gap-1 bg-panel p-3 pt-2">
           <button onClick={run} disabled={busy || !ready}
             className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-lime py-3.5 font-bold text-black shadow-[0_0_24px_rgba(209,254,23,.25)] hover:brightness-110 disabled:opacity-40">
-            {busy ? "Sending…" : `Generate ${app.out === "video" ? "Video" : app.out === "audio" ? "Audio" : "Image"}`}
+            {busy ? (app.out === "text" || app.fanout ? "Thinking…" : "Sending…") : app.fanout ? "Create scenes" : app.out === "text" ? "Analyze" : `Generate ${app.out === "video" ? "Video" : app.out === "audio" ? "Audio" : "Image"}`}
             <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ ≈${cost.toFixed(2)}</span>
           </button>
           {steps.length > 1 && <p className="text-center text-[11px] text-muted">Runs {steps.length} steps automatically. Keep this page open or check History.</p>}
         </div>
       </aside>
       <main className="min-h-[60vh] flex-1 overflow-y-auto rounded-2xl bg-panel/40 p-3">
-        <Feed items={items} kind={app.out === "audio" ? "audio" : app.out === "image" ? "image" : "video"} />
+        <Feed items={items} kind={app.out === "text" ? "video" : app.out} />
       </main>
       {picker && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={() => setPicker(false)}>
