@@ -37,7 +37,7 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 lg:h-[calc(100vh-3.5rem)] lg:flex-row">
+    <div className="flex flex-col gap-3 p-3 lg:h-[calc(100dvh-3.5rem)] lg:flex-row">
       <aside className="flex w-full shrink-0 flex-col gap-3 overflow-y-auto rounded-2xl bg-panel p-3 lg:w-[360px]">
         <Link href="/apps" className="text-xs text-muted hover:text-fg">← All apps</Link>
         <div className="flex h-28 shrink-0 flex-col justify-end rounded-xl bg-gradient-to-br from-[#3a2a12] via-[#1d1d1d] to-[#0f2a1f] p-3">
@@ -78,12 +78,15 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
         )}
 
         {error && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-        <button onClick={run} disabled={busy || !ready}
-          className="mt-auto flex shrink-0 items-center justify-center gap-2 rounded-xl bg-lime py-3.5 font-bold text-black shadow-[0_0_24px_rgba(209,254,23,.25)] hover:brightness-110 disabled:opacity-40">
-          {busy ? "Sending…" : `Generate ${app.out === "video" ? "Video" : app.out === "audio" ? "Audio" : "Image"}`}
-          <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ ≈${cost.toFixed(2)}</span>
-        </button>
-        {app.steps.length > 1 && <p className="text-center text-[11px] text-muted">Runs {app.steps.length} steps automatically. Keep this page open or check History.</p>}
+        {/* Pinned to the panel bottom so it never scrolls out of view */}
+        <div className="sticky bottom-0 -mx-3 -mb-3 mt-auto flex flex-col gap-1 bg-panel p-3 pt-2">
+          <button onClick={run} disabled={busy || !ready}
+            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-lime py-3.5 font-bold text-black shadow-[0_0_24px_rgba(209,254,23,.25)] hover:brightness-110 disabled:opacity-40">
+            {busy ? "Sending…" : `Generate ${app.out === "video" ? "Video" : app.out === "audio" ? "Audio" : "Image"}`}
+            <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ ≈${cost.toFixed(2)}</span>
+          </button>
+          {app.steps.length > 1 && <p className="text-center text-[11px] text-muted">Runs {app.steps.length} steps automatically. Keep this page open or check History.</p>}
+        </div>
       </aside>
       <main className="min-h-[60vh] flex-1 overflow-y-auto rounded-2xl bg-panel/40 p-3">
         <Feed items={items} kind={app.out === "image" ? "image" : "video"} />

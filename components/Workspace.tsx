@@ -62,10 +62,14 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
     }
   }
 
-  const ready = (prompt.trim() || model.promptOptional) && (model.needs ?? []).every((n) => media[n]);
+  const missing = [
+    ...(model.needs ?? []).filter((n) => !media[n]).map((n) => label(n, n === "video" ? "Input video" : n === "end" ? "End frame" : "Start frame")),
+    ...(!prompt.trim() && !model.promptOptional ? ["Prompt"] : []),
+  ];
+  const ready = !missing.length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 lg:h-[calc(100vh-3.5rem)] lg:flex-row">
+    <div className="flex flex-col gap-3 p-3 lg:h-[calc(100dvh-3.5rem)] lg:flex-row">
       {/* ---------- Left control panel ---------- */}
       <aside className="flex w-full shrink-0 flex-col gap-2 overflow-y-auto rounded-2xl bg-panel p-3 lg:w-[360px]">
         {kind === "video" && (
@@ -179,10 +183,14 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
 
         {error && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
-        <button onClick={generate} disabled={busy || !ready}
-          className="mt-auto flex shrink-0 items-center justify-center gap-2 rounded-xl bg-lime py-3.5 font-bold text-black shadow-[0_0_24px_rgba(209,254,23,.25)] transition hover:brightness-110 disabled:opacity-40">
-          {busy ? "Sending…" : extendFrom ? "Extend" : "Generate"} <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ {cost === 0 ? "Free" : `≈$${cost.toFixed(2)}`}</span>
-        </button>
+        {/* Pinned to the panel bottom so it never scrolls out of view */}
+        <div className="sticky bottom-0 -mx-3 -mb-3 mt-auto flex flex-col gap-1 bg-panel p-3 pt-2">
+          <button onClick={generate} disabled={busy || !ready}
+            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-lime py-3.5 font-bold text-black shadow-[0_0_24px_rgba(209,254,23,.25)] transition hover:brightness-110 disabled:opacity-40">
+            {busy ? "Sending…" : extendFrom ? "Extend" : "Generate"} <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ {cost === 0 ? "Free" : `≈$${cost.toFixed(2)}`}</span>
+          </button>
+          {!busy && missing.length > 0 && <p className="text-center text-[11px] text-muted">Add: {missing.join(", ")}</p>}
+        </div>
       </aside>
 
       {/* ---------- Right: results ---------- */}
