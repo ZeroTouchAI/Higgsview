@@ -1,5 +1,5 @@
 import { kie } from "@/lib/kie";
-import { appById, appStep } from "@/lib/apps";
+import { appById, appStep, stepsOf } from "@/lib/apps";
 import { runModel } from "@/lib/run";
 import { mutate, readHistory } from "@/lib/store";
 import type { Item } from "@/lib/history";
@@ -28,7 +28,7 @@ export async function GET() {
       if (d.state === "fail") return void (done[i.id] = { state: "fail", error: explain(d.failMsg || "Generation failed"), usd });
       const url: string | undefined = r.resultUrls?.[0];
       const app = i.app && appById(i.app.id);
-      if (app && i.app!.step + 1 < app.steps.length && url) {
+      if (app && i.app!.step + 1 < stepsOf(app, i.app!.input).length && url) {
         const step = i.app!.step + 1;
         const { m, params } = appStep(app, step, i.app!.input, url);
         try {
@@ -57,7 +57,8 @@ export async function POST(req: Request) {
   return Response.json(next);
 }
 
+// DELETE hides the item (kept for the Spending page).
 export async function DELETE(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
-  return Response.json(await mutate((all) => all.filter((i) => i.id !== id)));
+  return Response.json(await mutate((all) => all.map((i) => (i.id === id ? { ...i, hidden: true } : i))));
 }

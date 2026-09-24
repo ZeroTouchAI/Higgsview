@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MODELS, PRESETS, byId, estimateUsd, type Mode, type Model } from "@/lib/models";
+import { MODELS, PRESETS, byId, defaultRes, estimateUsd, type Mode, type Model } from "@/lib/models";
 import { refreshHistory, useHistory, type Item } from "@/lib/history";
 import Feed from "@/components/Feed";
 import { Chip, Upload } from "@/components/Controls";
@@ -10,10 +10,10 @@ const TABS: [Mode, string][] = [["create", "Create"], ["edit", "Edit"], ["motion
 const TIER_LABEL = { free: "Free", budget: "Budget", standard: "Standard", premium: "Premium" };
 type Media = { start?: string; end?: string; video?: string; videoSecs?: number };
 
-export default function Workspace({ kind }: { kind: "video" | "image" }) {
+export default function Workspace({ kind }: { kind: "video" | "image" | "audio" }) {
   const sp = useSearchParams();
   const router = useRouter();
-  const tab: Mode = kind === "image" ? "image" : ((sp.get("tab") as Mode) || "create");
+  const tab: Mode = kind !== "video" ? kind : ((sp.get("tab") as Mode) || "create");
   const models = MODELS.filter((m) => m.mode === tab);
 
   const [extendFrom, setExtendFrom] = useState<Item>();
@@ -28,9 +28,9 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
   // Fall back to the model's defaults when the chosen option isn't supported by the current model.
   const duration = model.durations.includes(dur) ? dur : model.durations[0] ?? 0;
   const aspect = model.aspects.includes(asp) ? asp : model.aspects[0];
-  const resolution = model.resolutions.includes(res) ? res : model.resolutions.at(-1)!;
+  const resolution = model.resolutions.includes(res) ? res : defaultRes(model);
   const [audio, setAudio] = useState(true);
-  const [media, setMedia] = useState<Media>({});
+  const [media, setMedia] = useState<Media>({ start: sp.get("start") ?? undefined });
   const [refs, setRefs] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -144,6 +144,9 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
               extendFrom ? "What happens next? e.g. “The camera pulls back to reveal the whole city”"
                 : model.id === "genjutsu-swap" ? "What to swap, e.g. “Replace the sneaker with the product in image 1”"
                 : model.id === "genjutsu-motion" ? "e.g. “The woman in image 1 performs this, in the kitchen from image 2”"
+                : model.id === "suno-music" ? "Upbeat modern corporate background music, confident and inspiring, 30 seconds"
+                : model.id === "suno-sfx" ? "Whoosh transition with a deep bass hit"
+                : kind === "audio" ? "Type the words to speak…"
                 : kind === "image" ? "Describe the image you want…"
                 : "Describe the scene, subject, action and camera — e.g. “A sneaker spinning on a wet neon street, slow motion”"}
             className="resize-none bg-transparent text-sm outline-none placeholder:text-muted/70" />
@@ -179,7 +182,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
           {model.durations.length > 1 && <Chip label="Duration" value={duration} options={model.durations} fmt={(d) => `${extendFrom ? "+" : ""}${d}s`} onChange={(v) => setDuration(Number(v))} />}
           {model.durations[0] === -1 && <span className="rounded-lg bg-chip px-3 py-1.5 text-sm text-muted">Length: matches video</span>}
           {model.aspects.length > 1 && <Chip label="Aspect ratio" value={aspect} options={model.aspects} onChange={setAspect} />}
-          {model.resolutions.length > 1 && <Chip label="Quality" value={resolution} options={model.resolutions} onChange={setResolution} />}
+          {model.resolutions.length > 1 && <Chip label={model.resLabel ?? "Quality"} value={resolution} options={model.resolutions} onChange={setResolution} />}
         </div>
 
         {error && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
@@ -196,13 +199,12 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
 
       {/* ---------- Right: results ---------- */}
       <main className="min-h-[60vh] flex-1 overflow-y-auto rounded-2xl bg-panel/40 p-3">
-        <Feed items={items.filter((i) => i.kind === kind || (kind === "video" && byId(i.modelId)?.mode !== "image"))} kind={kind}
+        <Feed items={items.filter((i) => i.kind === kind || (kind === "video" && i.kind === "image" && byId(i.modelId)?.mode === "swap"))} kind={kind}
           onReuse={(i) => { setPrompt(i.prompt); if (byId(i.modelId)?.mode === tab) setModelId(i.modelId); }}
           onContinue={kind === "video" ? (i) => {
-            // Chain clips: the last frame of this clip becomes the start frame of the next.
-            if (tab !== "create") router.replace("/video?tab=create");
-            setExtendFrom(undefined); setMedia({ start: i.lastFrame }); setPrompt("");
-            if (byId(i.modelId)?.mode === "create") setModelId(i.modelId);
+            // Chain clips: the last frame of this clip becomes the start frame of the next (passed in the URL, the page remounts).
+            const m = byId(i.modelId)?.mode === "create" ? i.modelId : "seedance-2-fast";
+            router.push(`/video?tab=create&model=${m}&start=${encodeURIComponent(i.lastFrame!)}`);
           } : undefined}
           onExtend={kind === "video" ? (i) => { setExtendFrom(i); setPrompt(""); } : undefined} />
       </main>

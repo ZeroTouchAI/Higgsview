@@ -2,7 +2,7 @@
 // `build` turns the UI's generic params into the exact Kie.ai request body.
 // Kie docs: https://docs.kie.ai (all "market" models use POST /api/v1/jobs/createTask)
 
-export type Mode = "create" | "edit" | "motion" | "swap" | "image" | "extend" | "tool"; // "extend"/"tool" are hidden: used by result cards and Apps
+export type Mode = "create" | "edit" | "motion" | "swap" | "image" | "audio" | "extend" | "tool"; // "extend"/"tool" are hidden: used by result cards and Apps
 export type Tier = "free" | "budget" | "standard" | "premium";
 
 export type Params = {
@@ -37,6 +37,8 @@ export type Model = {
   promptOptional?: boolean;
   output?: "image" | "audio"; // model whose result isn't a video
   refs?: number; // max extra reference images
+  resLabel?: string; // label for the resolutions chip (e.g. "Voice", "Quality")
+  defaultRes?: string; // default chip value (otherwise the last = best)
   videoMaxPixels?: number; // input video must be at most this many pixels (w×h)
   videoMaxSecs?: number; // longer input videos are trimmed in the browser before upload
   // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
@@ -77,7 +79,7 @@ const seedance = (model: string, extra: Partial<Model>): Model => ({
 function genjutsu(kind: string, name: string, desc: string, instruction: string): Model {
   return {
     id: `genjutsu-${kind}`, name, badge: kind === "swap" ? "NEW" : "TOP", mode: "swap", tier: "premium",
-    usdPerSec: { "480p": 0.085, "720p": 0.19 }, billsInputVideo: true, // Kie reference-video pricing
+    usdPerSec: { "480p": 0.085, "720p": 0.19 }, billsInputVideo: true, defaultRes: "480p", // Kie reference-video pricing
     desc: `${desc} Seedance blocks real people's faces: for real people use Character Swap.`,
     durations: [-1], aspects: ["adaptive", "16:9", "9:16", "1:1"], resolutions: ["480p", "720p"], audio: true,
     frames: "none", refs: 9, needs: ["video"], videoMaxPixels: 927408, videoMaxSecs: 30, promptOptional: true,
@@ -116,7 +118,7 @@ export const MODELS: Model[] = [
     desc: "Cheapest video model: about $0.10 for a 5s 480p clip. Best for drafts.",
   }),
   {
-    id: "kling-3", name: "Kling 3.0", badge: "TOP", mode: "create", tier: "standard", usdPerSec: 0.09,
+    id: "kling-3", name: "Kling 3.0", badge: "TOP", mode: "create", tier: "standard", usdPerSec: { std: 0.07, pro: 0.09 },
     desc: "The new standard in photorealism with advanced motion complexity.",
     durations: [5, 10, 15], aspects: ["16:9", "9:16", "1:1"], resolutions: ["std", "pro"],
     audio: true, frames: "start-end",
@@ -290,22 +292,37 @@ export const MODELS: Model[] = [
     build: (p) => ({ model: "kling/ai-avatar-standard", input: { image_url: p.start, audio_url: p.audioUrl, prompt: p.prompt || "Natural talking to camera" } }),
   },
   {
-    id: "tts", name: "ElevenLabs Voice (Multilingual v2)", mode: "tool", output: "audio", tier: "budget", usdFlat: 0.03,
-    desc: "Text to natural speech.", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
-    build: (p) => ({ model: "elevenlabs/text-to-speech-multilingual-v2", input: { text: p.prompt, voice: p.voice || "EkK5I93UQWFDigLMpZcX" } }),
+    id: "tts", name: "ElevenLabs Multilingual v2", mode: "audio", output: "audio", tier: "budget", usdFlat: 0.03,
+    desc: "ElevenLabs text to speech. (Was failing on Kie on 2026-09-24; use Gemini if it errors.)", durations: [], aspects: ["auto"],
+    resolutions: ["Rachel", "Adam", "Brian", "Laura", "Liam", "Jessica"], resLabel: "Voice", defaultRes: "Brian", frames: "none",
+    build: (p) => ({ model: "elevenlabs/text-to-speech-multilingual-v2", input: { text: p.prompt, voice: p.voice || p.resolution } }),
   },
 
   {
-    id: "gemini-tts", name: "Gemini Voice", mode: "tool", output: "audio", tier: "budget", usdFlat: 0.02,
-    desc: "Text to natural speech (Google Gemini 3.1 Flash TTS).", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
+    id: "gemini-tts", name: "Text to Speech (Gemini)", badge: "CHEAP", mode: "audio", output: "audio", tier: "budget", usdFlat: 0.005,
+    desc: "Natural voiceover from text, ~$0.004 per line. Add tone in brackets, e.g. [excited] or [whispers].", durations: [], aspects: ["auto"],
+    resolutions: ["Puck", "Charon", "Kore", "Fenrir", "Aoede", "Zephyr", "Achird", "Sulafat", "Orus", "Leda", "Algieba", "Despina", "Gacrux", "Schedar"],
+    resLabel: "Voice", defaultRes: "Puck", frames: "none",
     build: (p) => ({
       model: "google/gemini-3-1-flash-tts",
       input: {
         temperature: 1, scene: "", sample_context: "Professional, natural voiceover.",
-        speakers: [{ speaker_id: "Speaker 1", voice_name: p.voice || "Puck" }],
+        speakers: [{ speaker_id: "Speaker 1", voice_name: p.voice || p.resolution }],
         dialogue_turns: [{ speaker_id: "Speaker 1", text: p.prompt }],
       },
     }),
+  },
+
+  {
+    id: "suno-music", name: "Music (Suno V6)", badge: "NEW", mode: "audio", output: "audio", tier: "budget", usdFlat: 0.06,
+    desc: "Full songs or background music from a description. Returns a finished track.", durations: [], aspects: ["auto"],
+    resolutions: ["Instrumental", "With vocals"], resLabel: "Type", defaultRes: "Instrumental", frames: "none",
+    build: (p) => ({ model: "ai-music-api/generate", input: { prompt: p.prompt, custom_mode: false, instrumental: p.resolution !== "With vocals", model: "V6" } }),
+  },
+  {
+    id: "suno-sfx", name: "Sound Effects (Suno)", mode: "audio", output: "audio", tier: "budget", usdFlat: 0.03,
+    desc: "Sound effects and ambience from a description: whooshes, crowds, rain, UI clicks.", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
+    build: (p) => ({ model: "ai-music-api/sounds", input: { prompt: p.prompt, model: "V6" } }),
   },
 
   // ---------- IMAGE ----------
@@ -318,6 +335,46 @@ export const MODELS: Model[] = [
       model: "nano-banana-2",
       input: { prompt: p.prompt, image_input: [p.start, p.end, ...(p.refs ?? [])].filter(Boolean), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" },
     }),
+  },
+  {
+    id: "nano-banana-pro", name: "Nano Banana Pro", badge: "TOP", mode: "image", tier: "premium", usdFlat: 0.12,
+    desc: "Google's best 4K image model: text rendering, product shots, precise edits.",
+    durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "4:5", "21:9", "auto"], resolutions: ["1K", "2K", "4K"], defaultRes: "2K",
+    frames: "start",
+    build: (p) => ({ model: "nano-banana-pro", input: { prompt: p.prompt, image_input: [p.start, ...(p.refs ?? [])].filter(Boolean), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" } }),
+  },
+  {
+    id: "gpt-image-2", name: "GPT Image 2", mode: "image", tier: "standard", usdFlat: 0.06,
+    desc: "OpenAI image model: near-perfect text, posters, ads, logos.",
+    durations: [], aspects: ["1:1", "16:9", "9:16", "3:2", "2:3", "4:5", "21:9", "auto"], resolutions: ["1K", "2K", "4K"], defaultRes: "2K",
+    frames: "start",
+    build: (p) => p.start
+      ? { model: "gpt-image-2-image-to-image", input: { prompt: p.prompt, input_urls: [p.start], aspect_ratio: p.aspect, resolution: p.resolution } }
+      : { model: "gpt-image-2-text-to-image", input: { prompt: p.prompt, aspect_ratio: p.aspect, resolution: p.resolution } },
+  },
+  {
+    id: "seedream-5-pro", name: "Seedream 5.0 Pro", mode: "image", tier: "standard", usdFlat: 0.04,
+    desc: "ByteDance image model with strong visual reasoning and consistency.",
+    durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9"], resolutions: ["basic", "high"], resLabel: "Quality",
+    frames: "start",
+    build: (p) => p.start
+      ? { model: "seedream/5-pro-image-to-image", input: { prompt: p.prompt, image_urls: [p.start], aspect_ratio: p.aspect, quality: p.resolution } }
+      : { model: "seedream/5-pro-text-to-image", input: { prompt: p.prompt, aspect_ratio: p.aspect, quality: p.resolution } },
+  },
+  {
+    id: "flux-2-pro", name: "FLUX.2 Pro", mode: "image", tier: "budget", usdFlat: 0.03,
+    desc: "Fast, detailed photorealism from Black Forest Labs.",
+    durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"], resolutions: ["1K", "2K"],
+    frames: "start",
+    build: (p) => p.start
+      ? { model: "flux-2/pro-image-to-image", input: { prompt: p.prompt, input_urls: [p.start], aspect_ratio: p.aspect, resolution: p.resolution } }
+      : { model: "flux-2/pro-text-to-image", input: { prompt: p.prompt, aspect_ratio: p.aspect, resolution: p.resolution } },
+  },
+  {
+    id: "grok-image-2", name: "Grok Imagine 2.0", mode: "image", tier: "budget", usdFlat: 0.02,
+    desc: "High-resolution image generation by xAI.",
+    durations: [], aspects: ["1:1", "16:9", "9:16", "3:2", "2:3"], resolutions: ["auto"], frames: "none",
+    build: (p) => ({ model: "grok-imagine-image-2-0/text-to-image", input: { prompt: p.prompt, aspect_ratio: p.aspect } }),
   },
   {
     id: "pollinations-flux", name: "Flux (Free)", badge: "FREE", mode: "image", tier: "free", usdFlat: 0,
@@ -335,7 +392,9 @@ export const byId = (id: string) => MODELS.find((m) => m.id === id);
 
 // `seconds`: clip length; for "match input video" models (duration -1) pass the uploaded video's length.
 // Rates: measured or from Kie/pricing write-ups (2026-09-24); real cost is recorded per item from Kie.
-export function estimateUsd(m: Model, seconds: number, resolution = m.resolutions.at(-1)!) {
+export const defaultRes = (m: Model) => m.defaultRes ?? m.resolutions.at(-1)!;
+
+export function estimateUsd(m: Model, seconds: number, resolution = defaultRes(m)) {
   if (m.usdFlat != null) return m.usdFlat;
   const rate = typeof m.usdPerSec === "object" ? m.usdPerSec[resolution] ?? Math.max(...Object.values(m.usdPerSec)) : m.usdPerSec ?? 0;
   return rate * Math.max(seconds, 0) * (m.billsInputVideo ? 2 : 1);

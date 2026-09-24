@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { use, useState } from "react";
-import { appById, appCost, type AppInput, type Tier } from "@/lib/apps";
+import { APPS, appById, appCost, stepsOf, type AppInput, type Tier } from "@/lib/apps";
 import { byId } from "@/lib/models";
 import { refreshHistory, useHistory } from "@/lib/history";
 import { Chip, Upload } from "@/components/Controls";
@@ -15,16 +15,19 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
   const [input, setInput] = useState<AppInput>({ tier: "standard" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [picker, setPicker] = useState(false);
   const items = useHistory().filter((i) => i.app?.id === id);
   if (!app) return <p className="p-8">App not found. <Link href="/apps" className="text-lime">Back to Apps</Link></p>;
 
   const set = (patch: Partial<AppInput>) => setInput((i) => ({ ...i, ...patch }));
-  const hasVideoStep = app.steps.some((s) => s(input, "x").modelId.startsWith("seedance"));
+  const steps = stepsOf(app, input);
+  const hasVideoStep = steps.some((s) => byId(s(input, "x").modelId)?.mode === "create");
   const choice = input.choice ?? app.choice?.options[0];
   // The model that receives the uploaded video decides its size/length limits (auto-fixed in the browser).
-  const videoModel = app.steps.map((s) => byId(s(input, "x").modelId)).find((m) => m?.needs?.includes("video"));
+  const videoModel = steps.map((s) => byId(s(input, "x").modelId)).find((m) => m?.needs?.includes("video"));
   const cost = appCost(app, { ...input, choice });
-  const ready = app.inputs.every(([k]) => input[k]) && (!app.text || app.text.optional || input.text?.trim());
+  const ready = app.inputs.every(([k]) => input[k]) && (!app.text || app.text.optional || input.text?.trim())
+    && (app.inputs.length > 0 || !app.optional || app.optional.some(([k]) => input[k]) || !!input.text?.trim());
 
   async function run() {
     if (cost > 2 && !confirm(`This will cost about $${cost.toFixed(2)} on Kie.ai. Continue?`)) return;
@@ -44,16 +47,17 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
     <div className="flex flex-col gap-3 p-3 lg:h-[calc(100dvh-3.5rem)] lg:flex-row">
       <aside className="flex w-full shrink-0 flex-col gap-3 overflow-y-auto rounded-2xl bg-panel p-3 lg:w-[360px]">
         <Link href="/apps" className="text-xs text-muted hover:text-fg">← All apps</Link>
-        <div className="flex h-28 shrink-0 flex-col justify-end rounded-xl bg-gradient-to-br from-[#3a2a12] via-[#1d1d1d] to-[#0f2a1f] p-3">
+        <div className="relative flex h-28 shrink-0 flex-col justify-end rounded-xl bg-gradient-to-br from-[#3a2a12] via-[#1d1d1d] to-[#0f2a1f] p-3">
+          {app.cat === "effects" && <button onClick={() => setPicker(true)} className="absolute top-2 right-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs font-semibold backdrop-blur hover:bg-black/70">✎ Change</button>}
           <div className="text-xl font-black tracking-tight text-lime uppercase">{app.name}</div>
           <div className="text-xs text-fg/80">{app.desc}</div>
         </div>
 
-        {app.inputs.length > 0 && (
+        {(app.inputs.length > 0 || app.optional) && (
           <div className="grid grid-cols-2 gap-2">
-            {app.inputs.map(([k, label]) => (
+            {[...app.inputs, ...(app.optional ?? [])].map(([k, label]) => (
               <Upload key={k} label={label} accept={k === "video" ? "video/*" : k === "audioUrl" ? "audio/*" : "image/*"}
-                value={input[k]} onChange={(url) => set({ [k]: url })}
+                value={input[k]} onChange={(url) => set({ [k]: url })} optional={app.optional?.some(([o]) => o === k)}
                 maxPixels={k === "video" ? videoModel?.videoMaxPixels : undefined} maxSecs={k === "video" ? videoModel?.videoMaxSecs : undefined} />
             ))}
           </div>
@@ -90,12 +94,31 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
             {busy ? "Sending…" : `Generate ${app.out === "video" ? "Video" : app.out === "audio" ? "Audio" : "Image"}`}
             <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ ≈${cost.toFixed(2)}</span>
           </button>
-          {app.steps.length > 1 && <p className="text-center text-[11px] text-muted">Runs {app.steps.length} steps automatically. Keep this page open or check History.</p>}
+          {steps.length > 1 && <p className="text-center text-[11px] text-muted">Runs {steps.length} steps automatically. Keep this page open or check History.</p>}
         </div>
       </aside>
       <main className="min-h-[60vh] flex-1 overflow-y-auto rounded-2xl bg-panel/40 p-3">
-        <Feed items={items} kind={app.out === "image" ? "image" : "video"} />
+        <Feed items={items} kind={app.out === "audio" ? "audio" : app.out === "image" ? "image" : "video"} />
       </main>
+      {picker && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={() => setPicker(false)}>
+          <div role="dialog" aria-label="Effects" className="max-h-[80vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-panel p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-black uppercase">Effects</h2>
+              <button onClick={() => setPicker(false)} aria-label="Close" className="rounded-lg bg-chip px-2">✕</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {APPS.filter((a) => a.cat === "effects").map((a, n) => (
+                <Link key={a.id} href={`/apps/${a.id}`} className={`flex aspect-[4/5] flex-col justify-end rounded-xl p-3 ring-lime hover:ring-2 ${a.id === id ? "ring-2" : ""}`}
+                  style={{ background: `linear-gradient(160deg, hsl(${(n * 47) % 360} 50% 24%), #111)` }}>
+                  <span className="text-sm font-black uppercase">{a.name}</span>
+                  <span className="line-clamp-3 text-[11px] text-fg/60">{a.desc}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
 import { refreshHistory, removeItem, type Item } from "@/lib/history";
-import { appById } from "@/lib/apps";
+import { appById, stepsOf } from "@/lib/apps";
 
 type Act = ((i: Item) => void) | undefined;
-export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { items: Item[]; kind: "video" | "image"; onReuse?: Act; onContinue?: Act; onExtend?: Act }) {
+export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { items: Item[]; kind: "video" | "image" | "audio"; onReuse?: Act; onContinue?: Act; onExtend?: Act }) {
   if (!items.length) return <HowItWorks kind={kind} />;
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
@@ -18,7 +18,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
             ) : i.state === "pending" ? (
               <div className="flex flex-col items-center gap-2 text-sm text-muted">
                 <span className="size-8 animate-spin rounded-full border-2 border-line border-t-lime" />
-                Generating…{i.app && (appById(i.app.id)?.steps.length ?? 1) > 1 && ` step ${i.app.step + 1} of ${appById(i.app.id)!.steps.length}`}
+                Generating…{i.app && appById(i.app.id) && stepsOf(appById(i.app.id)!, i.app.input).length > 1 && ` step ${i.app.step + 1} of ${stepsOf(appById(i.app.id)!, i.app.input).length}`}
               </div>
             ) : (
               <p className="p-4 text-center text-sm text-red-300">{i.error}</p>
@@ -46,8 +46,10 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
   );
 }
 
-function HowItWorks({ kind }: { kind: "video" | "image" }) {
-  const steps = kind === "video"
+function HowItWorks({ kind }: { kind: "video" | "image" | "audio" }) {
+  const steps = kind === "audio"
+    ? [["Pick a tool", "Voiceover, music or sound effects"], ["Describe it", "Type the words, or describe the sound or song"], ["Get audio", "Play, download or export to Drive"]]
+    : kind === "video"
     ? [["Add image", "Upload a start frame — or just write a prompt"], ["Choose preset", "Pick a camera move or commercial look"], ["Get video", "Click generate to create your final video"]]
     : [["Describe", "Write what you want to see"], ["Add reference", "Optionally upload a product or style image"], ["Get image", "Click generate"]];
   return (

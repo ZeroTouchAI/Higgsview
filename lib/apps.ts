@@ -1,12 +1,12 @@
 // Higgsfield-style one-click Apps. Each app = inputs + 1..n steps; a step picks a model from lib/models.ts and
 // fills its params. Multi-step apps chain: step N's result URL is passed to step N+1 as `prev`
 // (the server runs the next step when the previous one finishes, see app/api/history).
-import { byId, estimateUsd, type Params } from "./models.ts";
+import { byId, defaultRes, estimateUsd, type Params } from "./models.ts";
 
 export type Tier = "draft" | "standard" | "premium";
-export type AppInput = { start?: string; end?: string; video?: string; audioUrl?: string; text?: string; choice?: string; tier?: Tier };
+export type AppInput = { start?: string; end?: string; product?: string; video?: string; audioUrl?: string; text?: string; choice?: string; tier?: Tier };
 type Step = (i: AppInput, prev?: string) => { modelId: string; params: Partial<Params> };
-type Slot = "start" | "end" | "video" | "audioUrl";
+type Slot = "start" | "end" | "product" | "video" | "audioUrl";
 
 export type App = {
   id: string;
@@ -16,13 +16,15 @@ export type App = {
   badge?: "PRO" | "NEW" | "TRENDING";
   out: "image" | "video" | "audio";
   inputs: [Slot, string][]; // required uploads with labels
+  optional?: [Slot, string][]; // optional uploads
   text?: { label: string; placeholder: string; optional?: boolean };
   choice?: { label: string; options: string[] };
-  steps: Step[];
+  steps: Step[] | ((i: AppInput) => Step[]); // a function when the recipe depends on which inputs were given
 };
 
 export const CATEGORIES = {
   studio: "Studios",
+  effects: "Effects",
   camera: "Camera & Motion",
   style: "Enhance & Style",
   identity: "Face & Identity",
@@ -33,12 +35,22 @@ export const CATEGORIES = {
   extras: "Extras",
 };
 
-// Video steps run on Seedance (first frame = your image). Draft ≈ $0.10–0.20, Standard ≈ $0.30–0.45, Premium ≈ $0.60+.
-const VIDEO_TIERS: Record<Tier, string> = { draft: "seedance-2-mini", standard: "seedance-2-fast", premium: "seedance-2-5" };
-const animate = (prompt: string | ((i: AppInput) => string), seconds = 5): Step => (i, prev) => ({
-  modelId: VIDEO_TIERS[i.tier ?? "standard"],
-  params: { prompt: typeof prompt === "function" ? prompt(i) : prompt, start: prev ?? i.start, duration: seconds, aspect: "adaptive", resolution: "720p", audio: true },
-});
+// Video steps: Draft = Grok Imagine 480p (~$0.07), Standard = Kling 3.0 std (~$0.35/5s), Premium = Kling 3.0 pro + sound (~$0.45/5s).
+// Not Seedance: it rejects real people's faces, and most apps start from a photo of a person.
+const VIDEO_TIERS: Record<Tier, { modelId: string; resolution: string }> = {
+  draft: { modelId: "grok-imagine", resolution: "480p" },
+  standard: { modelId: "kling-3", resolution: "std" },
+  premium: { modelId: "kling-3", resolution: "pro" },
+};
+const animate = (prompt: string | ((i: AppInput) => string), seconds = 5): Step => (i, prev) => {
+  const t = VIDEO_TIERS[i.tier ?? "standard"];
+  const grok = t.modelId.startsWith("grok");
+  return {
+    modelId: t.modelId,
+    params: { prompt: typeof prompt === "function" ? prompt(i) : prompt, start: prev ?? i.start, resolution: t.resolution,
+      duration: grok ? (seconds > 6 ? 10 : 6) : seconds, aspect: "9:16", audio: i.tier !== "standard" },
+  };
+};
 // Image steps run on Nano Banana 2 with the uploaded images as references (image 1 = start, image 2 = end).
 const nano = (prompt: string | ((i: AppInput) => string), final = true): Step => (i) => ({
   modelId: "nano-banana-2",
@@ -67,6 +79,29 @@ const tts: Step = (i) => {
   return v.startsWith("gemini:") ? { modelId: "gemini-tts", params: { prompt: i.text, voice: v.slice(7) } } : { modelId: "tts", params: { prompt: i.text, voice: v } };
 };
 
+export const EFFECTS: [string, string][] = [
+  ["Floating Fall", "The subject floats weightlessly and drifts down through the air in dreamy slow motion, hair and clothes flowing."],
+  ["Burning Man", "The subject bursts into roaring stylized flames while calmly walking toward camera, embers swirling."],
+  ["Melting", "The subject slowly melts like hot wax into a glossy liquid puddle, surreal VFX."],
+  ["Street Colossus", "The subject grows into a colossal giant towering over city streets, tiny cars and people below, epic low angle."],
+  ["Infinite Clones", "Endless clones of the subject multiply across the frame all the way to the horizon, perfectly synchronized."],
+  ["Clones", "Three clones of the subject appear in the same scene and interact with each other playfully."],
+  ["High Flip", "The subject performs an impossibly high backflip in slow motion, camera tracking the spin."],
+  ["Monster Dab", "A giant friendly monster rises behind the subject and they both hit a synchronized dab."],
+  ["World Morphing", "The world around the subject morphs through completely different environments while they stay still."],
+  ["Studio Slide", "The subject slides dramatically across a seamless white photo studio floor into a hero pose."],
+  ["Smash and Grab", "The subject smashes a glass display case and grabs the item in slow motion, shards flying, heist energy."],
+  ["Incline", "The whole world tilts to an extreme incline while the subject keeps walking perfectly upright."],
+  ["Selfception", "The camera dives into the subject's eye and emerges in another scene with the same subject, recursive inception loop."],
+  ["Act Natural", "The subject acts completely natural while absurd chaos erupts all around them."],
+  ["Wild Ride", "The subject rides a wild creature at breakneck speed, wind and dust, dynamic tracking camera."],
+  ["Lidar Transition", "The scene dissolves into a glowing LiDAR point-cloud scan and reassembles into a new version of itself."],
+  ["Eyes In", "An ultra-fast push-in straight into the subject's eye, seamless macro transition into the iris."],
+  ["Vanish", "The subject disintegrates into thousands of glowing particles that blow away in the wind."],
+  ["Cutout", "The subject turns into a paper cutout and peels off the background, revealing the scene behind."],
+  ["Lacewalker", "Delicate glowing lace patterns weave across the subject's body and clothing as they walk."],
+];
+
 export const APPS: App[] = [
   // ---------- Studios ----------
   { id: "ugc-ad", name: "UGC Ad", cat: "studio", badge: "NEW", out: "video", desc: "A creator holds your product and talks about it to camera, with voice and lip-sync.",
@@ -89,6 +124,21 @@ export const APPS: App[] = [
     inputs: [["video", "Video"]], choice: { label: "Scale", options: ["2×", "4×"] },
     steps: [(i) => ({ modelId: "upscale-video", params: { video: i.video, resolution: i.choice === "4×" ? "4" : "2" } })] },
 
+  // ---------- Effects (Higgsfield VFX presets) ----------
+  ...EFFECTS.map(([name, fx]): App => ({
+    id: `fx-${name.toLowerCase().replace(/ /g, "-")}`, name, cat: "effects", out: "video", desc: fx,
+    inputs: [], optional: [["start", "Character"], ["end", "Location"], ["product", "Product"]],
+    text: { label: "Extra direction", placeholder: "Anything to add…", optional: true },
+    steps: (i) => {
+      const imgs = [i.start && "the person from image 1", i.end && `the location from image ${i.start ? 2 : 1}`, i.product && "the product from the last image"].filter(Boolean);
+      const motion = animate((x) => `${fx} ${x.text ?? ""} Cinematic VFX shot, vertical.`.trim());
+      // One photo: animate it directly. Several: compose them into one frame first.
+      return imgs.length > 1 || (!i.start && (i.end || i.product))
+        ? [(x) => ({ modelId: "nano-banana-2", params: { prompt: `One photorealistic cinematic vertical frame combining ${imgs.join(", ")}. ${KEEP}`, start: x.start ?? x.end ?? x.product, end: x.start ? x.end : undefined, refs: x.product && x.product !== (x.start ?? x.end ?? x.product) ? [x.product] : undefined, aspect: "9:16", resolution: "1K" } }), motion]
+        : [motion];
+    },
+  })),
+
   // ---------- Camera & Motion ----------
   { id: "angles", name: "Angles", cat: "camera", badge: "PRO", out: "image", desc: "Any camera angle of your image: 9 views in one sheet.", inputs: photo,
     steps: [nano(grid("front, 3/4 left, profile left, 3/4 right, profile right, low angle, high angle, top-down, and back view"))] },
@@ -100,7 +150,7 @@ export const APPS: App[] = [
     steps: [nano(grid("9 different possible next scenes of this story, each a distinct cinematic moment that could follow"))] },
   { id: "transitions", name: "Transitions", cat: "camera", badge: "TRENDING", out: "video", desc: "A seamless creative transition between two shots.",
     inputs: [["start", "First shot"], ["end", "Second shot"]], text: { label: "Style", placeholder: "Whip pan / morph / match cut through a doorway…", optional: true },
-    steps: [(i) => ({ modelId: VIDEO_TIERS[i.tier ?? "standard"], params: { prompt: `Seamless, creative cinematic transition from the first frame to the last frame. ${i.text ?? "Smooth morph with camera motion."}`, start: i.start, end: i.end, duration: 5, aspect: "adaptive", resolution: "720p", audio: true } })] },
+    steps: [(i) => ({ modelId: "kling-3", params: { prompt: `Seamless, creative cinematic transition from the first frame to the last frame. ${i.text ?? "Smooth morph with camera motion."}`, start: i.start, end: i.end, duration: 5, resolution: i.tier === "premium" ? "pro" : "std", audio: i.tier === "premium" } })] },
   { id: "behind-the-scenes", name: "Behind the Scenes", cat: "camera", out: "video", desc: "The camera pulls back to reveal a real film set around your shot.", inputs: photo,
     steps: [animate("The camera slowly pulls back to reveal this scene is being filmed on a busy movie set: crew, cameras on dollies, boom mics, lights and monitors around it.")] },
   { id: "expand-image", name: "Expand Image", cat: "camera", out: "image", desc: "Extend any image beyond its edges.", inputs: photo,
@@ -245,18 +295,19 @@ export const APPS: App[] = [
 ];
 
 export const appById = (id: string) => APPS.find((a) => a.id === id);
+export const stepsOf = (app: App, input: AppInput) => (typeof app.steps === "function" ? app.steps(input) : app.steps);
 
 // Resolve step `n` of an app into a full model call (fills defaults the step didn't set).
 export function appStep(app: App, n: number, input: AppInput, prev?: string) {
-  const { modelId, params } = app.steps[n](input, prev);
+  const { modelId, params } = stepsOf(app, input)[n](input, prev);
   const m = byId(modelId);
   if (!m) throw new Error(`App ${app.id}: unknown model ${modelId}`);
-  const full: Params = { prompt: "", duration: m.durations[0] ?? 0, aspect: m.aspects[0], resolution: m.resolutions.at(-1)!, audio: true, ...params };
+  const full: Params = { prompt: "", duration: m.durations[0] ?? 0, aspect: m.aspects[0], resolution: defaultRes(m), audio: true, ...params };
   return { m, params: full };
 }
 
 export function appCost(app: App, input: AppInput) {
-  return app.steps.reduce((sum, _, n) => {
+  return stepsOf(app, input).reduce((sum, _, n) => {
     const { m, params } = appStep(app, n, input, "https://prev");
     return sum + estimateUsd(m, params.duration > 0 ? params.duration : 10, params.resolution);
   }, 0);

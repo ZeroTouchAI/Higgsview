@@ -12,6 +12,8 @@ export async function POST(req: Request) {
   let m, params: Params;
   if (app) {
     const missing = app.inputs.find(([k]) => !body.input?.[k]);
+    if (!app.inputs.length && app.optional && !app.optional.some(([k]) => body.input?.[k]) && !body.input?.text?.trim())
+      return Response.json({ error: "Add a photo or describe the shot" }, { status: 400 });
     if (missing) return Response.json({ error: `${app.name} needs ${missing[1]}` }, { status: 400 });
     if (app.text && !app.text.optional && !body.input?.text?.trim()) return Response.json({ error: `${app.text.label} is required` }, { status: 400 });
     ({ m, params } = appStep(app, 0, body.input!));

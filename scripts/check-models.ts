@@ -18,13 +18,13 @@ for (const m of MODELS) {
 console.log(`ok — ${MODELS.length} models`);
 
 // Every App step must resolve to a real model and produce a valid request.
-import { APPS, appStep } from "../lib/apps.ts";
+import { APPS, appStep, stepsOf } from "../lib/apps.ts";
 const appIds = new Set<string>();
 for (const app of APPS) {
   assert(!appIds.has(app.id), `duplicate app ${app.id}`);
   appIds.add(app.id);
-  const input = { start: "https://x/a.png", end: "https://x/b.png", video: "https://x/v.mp4", audioUrl: "https://x/a.mp3", text: "hello", choice: app.choice?.options[0], tier: "draft" as const };
-  app.steps.forEach((_, n) => {
+  const input = { start: "https://x/a.png", end: "https://x/b.png", product: "https://x/p.png", video: "https://x/v.mp4", audioUrl: "https://x/a.mp3", text: "hello", choice: app.choice?.options[0], tier: "draft" as const };
+  stepsOf(app, input).forEach((_, n) => {
     const { m, params } = appStep(app, n, input, n ? "https://x/prev.png" : undefined);
     const out = m.build(params);
     assert("url" in out || out.model, `${app.id} step ${n + 1}: no model`);

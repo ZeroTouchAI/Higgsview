@@ -17,6 +17,7 @@ export type Item = {
   usd?: number;
   driveLink?: string; // set after "Export to Drive"
   app?: { id: string; input: AppInput; step: number }; // multi-step App progress
+  hidden?: boolean; // "deleted" from History but kept so Spending stays accurate
   createdAt: number;
 };
 
@@ -38,7 +39,7 @@ async function migrate() {
   if (res.ok) { try { localStorage.removeItem("hv_history"); } catch {} }
 }
 
-export function useHistory() {
+export function useHistory(includeHidden = false) {
   const [items, setItems] = useState(cache);
   useEffect(() => {
     listeners.add(setItems);
@@ -52,5 +53,5 @@ export function useHistory() {
     const t = setInterval(refreshHistory, 5000);
     return () => clearInterval(t);
   }, [pending]);
-  return items;
+  return includeHidden ? items : items.filter((i) => !i.hidden);
 }

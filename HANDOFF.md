@@ -70,6 +70,16 @@ Done and verified locally:
 - Layout fix: workspace and app pages use `lg:h-[calc(100dvh-3.5rem)]` without `flex-1` (flex-basis was overriding the height, so a long history stretched the panel). The Generate button is `sticky bottom-0` with an "Add: …" hint listing missing inputs. Genjutsu prompt is optional.
 - ponytail: two browser tabs polling at the same moment could start a chained step twice (single user, rare). Add a lock if it happens.
 
+## Navigation and new sections (added 2026-09-24, third session)
+- **Top bar** (`components/Nav.tsx`): Explore · **Image ▾ · Video ▾ · Audio ▾** (click-open mega menus with Features plus Models columns, mirroring higgsfield.ai; models are listed from `MODELS` by mode) · Effects · Cinema Studio · Genjutsu · Apps · History · Spending. Left out on purpose: MCP, API, ChatGPT Plugin, Contests, Enterprise.
+- **Audio** (`/audio`, mode `audio`): Gemini TTS (default, voice chip), ElevenLabs (flaky on Kie), **Suno V6 music** (`ai-music-api/generate`, instrumental or vocals), **Suno sound effects** (`ai-music-api/sounds`). Model fields `resLabel`/`defaultRes` drive the chip label and default.
+- **Image models added:** Nano Banana Pro, GPT Image 2, Seedream 5.0 Pro, FLUX.2 Pro, Grok Imagine 2.0. Each switches to image-to-image when a reference is uploaded.
+- **Effects** (`/effects` → `/apps/fx-*`): 20 Higgsfield VFX presets (`EFFECTS` in lib/apps.ts) with optional Character/Location/Product photos. Several photos get composed with Nano Banana first, then animated. A "Change" modal switches effects.
+- **Cinema Studio** (`/cinema`): camera, lens, focal length, aperture, up to 3 stacked moves, Photo/Video mode; the choices become prompt language and are sent to the chosen model.
+- **Spending** (`/spend`): Kie balance, today/7d/30d/all-time, 14-day bars, by tool, by type, every charge. History DELETE is now a soft delete (`hidden`) so Spending stays accurate.
+- **App videos moved off Seedance** (it blocks real faces): Draft = Grok Imagine 480p, Standard = Kling 3.0 std, Premium = Kling 3.0 pro + sound.
+- Pages are keyed by their query string (menu clicks reset state). "Continue →" passes the last frame as `?start=`.
+
 ## Google Drive export (done 2026-09-24)
 - Each finished card has an **Export to Drive** button. It calls `/api/export`, which posts `{url, name}` to Make.
 - Make scenario **"Higgsview - Export to Google Drive"** (id 6385753, team 638412, org 3365202 on us2.make.com): Custom webhook (hook 2851774) → HTTP Download a file → Google Drive Upload (connection 4175462, zerotouchaiautomation@gmail.com) → webhook response `{link, id}`
