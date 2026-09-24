@@ -24,13 +24,13 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
         const px = meta ? meta.w * meta.h : 0;
         const badPx = !!maxPixels && !!meta && (px > maxPixels || px < 409600);
         const tooLong = !!maxSecs && !!meta && meta.seconds > maxSecs - 0.5; // Kie measures length its own way (audio can run long): keep a margin
-        if (meta && (badPx || tooLong)) {
+        if (meta && (badPx || tooLong || !!maxPixels)) { // maxPixels = Seedance: always normalize (fps must be 23.8–60)
           const k = badPx ? Math.sqrt(921600 / px) : Math.min(1, 1920 / Math.max(meta.w, meta.h));
           const w = Math.round((meta.w * k) / 2) * 2, h = Math.round((meta.h * k) / 2) * 2;
           const secs = Math.min(meta.seconds, maxSecs ? maxSecs - 0.5 : Infinity); // margin: the stop timer can run a little late
-          f = await resizeVideo(f, w, h, secs, (p) => setStatus(`${tooLong ? `Trimming to ${maxSecs}s` : `Converting to ${w}×${h}`}… ${p}%`));
+          f = await resizeVideo(f, w, h, secs, (p) => setStatus(`${tooLong ? `Trimming to ${maxSecs}s` : `Preparing video`}… ${p}% (keep this tab open)`));
           seconds = secs;
-          setNote([tooLong && `Trimmed to first ${maxSecs}s`, badPx && `resized to ${w}×${h}`].filter(Boolean).join(", "));
+          setNote([tooLong && `Trimmed to first ${maxSecs}s`, badPx && `resized to ${w}×${h}`, "30 fps"].filter(Boolean).join(", "));
         }
       }
       // Some models (e.g. Kling Avatar) only take JPG/PNG: convert WebP/AVIF/GIF etc. to JPG first.
@@ -81,7 +81,9 @@ async function resizeVideo(f: File, w: number, h: number, maxSecs: number, progr
   await new Promise((r) => (v.onloadedmetadata = r));
   const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
   const ctx = canvas.getContext("2d")!;
-  const stream = canvas.captureStream(30);
+  // Frames are pushed manually at a steady 30 fps (Kie/Seedance needs 23.8–60 fps; screen-repaint timing is uneven).
+  const stream = canvas.captureStream(0);
+  const track = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack;
   // Route audio into the recording without playing it out loud.
   const audio = new AudioContext();
   const dest = audio.createMediaStreamDestination();
@@ -93,20 +95,20 @@ async function resizeVideo(f: File, w: number, h: number, maxSecs: number, progr
   const done = new Promise((r) => (rec.onstop = r));
   const end = Math.min(v.duration, maxSecs);
   const finish = () => { if (rec.state === "recording") { v.pause(); rec.stop(); } };
-  // Frames are drawn on every decoded video frame; the stop check runs on a timer too, because
-  // frame callbacks pause when the tab is hidden and the clip would run past the limit.
-  const draw = () => { ctx.drawImage(v, 0, 0, w, h); if (rec.state === "recording") v.requestVideoFrameCallback(draw); };
-  const tick = setInterval(() => {
-    if (document.hidden) ctx.drawImage(v, 0, 0, w, h); // keep frames coming if you switch tabs mid-conversion
+  // Clock runs in a Worker: page timers get throttled to 1/s in background tabs, worker timers don't.
+  const clock = new Worker(URL.createObjectURL(new Blob(["setInterval(() => postMessage(0), 1000 / 30)"], { type: "text/javascript" })));
+  clock.onmessage = () => {
+    if (rec.state !== "recording") return;
+    ctx.drawImage(v, 0, 0, w, h);
+    track.requestFrame();
     progress(Math.min(99, Math.round((v.currentTime / end) * 100)));
     if (v.currentTime >= end) finish();
-  }, 50);
+  };
   v.onended = finish;
   rec.start(1000);
   await v.play();
-  v.requestVideoFrameCallback(draw);
   await done;
-  clearInterval(tick);
+  clock.terminate();
   audio.close();
   URL.revokeObjectURL(v.src);
   return new File(chunks, f.name.replace(/\.\w+$/, "") + "-720p.mp4", { type: "video/mp4" });
