@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Higgsview
 
-## Getting Started
+A personal clone of the [Higgsfield](https://higgsfield.ai) studio. Same dark UI, same workflow (preset card → references → prompt → model picker → duration / aspect / quality chips → Generate), wired straight to cheap model APIs instead of a subscription.
 
-First, run the development server:
+**Goal: spend as little as possible.** You only pay per generation, at raw API prices, and every model shows its estimated cost before you click Generate.
+
+## Run it locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # then paste your KIE_API_KEY
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API keys: step by step
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. Kie.ai (required, runs every paid model)
+1. Go to https://kie.ai and sign up (Google login works).
+2. Open **API Key** (https://kie.ai/api-key) and copy the key.
+3. Top up a small amount under **Billing** ($5 is enough to test; 1 credit = $0.005).
+4. Paste it into `.env.local` as `KIE_API_KEY=...`, then restart `npm run dev`.
+5. The balance pill in the top-right corner should now show your dollar balance.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Free image model (no key)
+"Flux (Free)" on the Image page uses pollinations.ai. It's free, needs no key, and takes about 20–40 seconds per image.
 
-## Learn More
+## Deploy to Vercel (free Hobby plan)
+1. https://vercel.com/new → Import `ZeroTouchAI/Higgsview`.
+2. Add env vars `KIE_API_KEY` and `APP_PASSWORD` (the password is your login).
+3. Deploy. Every push to `main` redeploys on its own.
 
-To learn more about Next.js, take a look at the following resources:
+## Commands
+- `npm run dev`: local server
+- `npm run check`: sanity check of the model catalog
+- `npm run lint`, `npm run build`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [HANDOFF.md](HANDOFF.md) for project state and next steps, and [docs/RESEARCH.md](docs/RESEARCH.md) for the Higgsfield feature map and model pricing.
