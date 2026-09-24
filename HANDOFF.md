@@ -47,7 +47,7 @@ Done and verified locally:
   - Character Swap (full body): `wan/2-2-animate-replace`
   - Face Swap (photo): nano-banana-2 with a face image and a target image
   - Plus Wan Animate Move in Motion Control
-- Seedance reference videos must be **≤720p** (w×h ≤ 927,408 px, 2–30s). The upload tile checks this in the browser and explains how to fix it.
+- Seedance reference videos must be 409,600–927,408 px and ≤30s. The upload tile **auto-converts** anything outside that range in the browser (`resizeVideo` in Workspace.tsx: canvas + MediaRecorder MP4, real time, Chrome/Edge) to about 1280×720 and trims to 30s.
 - **Not live-tested yet:** Genjutsu, Character Swap, Face Swap, Wan Animate Move, Grok Extend, Continue.
 
 ## Google Drive export (done 2026-09-24)
@@ -72,5 +72,5 @@ Done and verified locally:
 
 ## Known limits
 - Uploaded inputs sit in Blob under `uploads/` and aren't cleaned up (free tier is 1 GB). Add a cleanup when it matters.
-- 1080p phone videos have to be exported at 720p before using Genjutsu (Seedance limit). In-browser downscaling isn't built.
+- Video auto-convert runs in real time (a 30s clip takes ~30s) and needs a browser with MP4 MediaRecorder (Chrome/Edge). Safari/Firefox users would need ffmpeg.wasm.
 - Cost estimates in `models.ts` are approximate. The real cost is recorded per item after completion.
