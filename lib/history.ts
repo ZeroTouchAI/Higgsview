@@ -14,6 +14,7 @@ export type Item = {
   state: "pending" | "success" | "fail";
   error?: string;
   usd?: number;
+  driveLink?: string; // set after "Export to Drive"
   createdAt: number;
 };
 

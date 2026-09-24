@@ -24,6 +24,9 @@ npm run dev                  # http://localhost:3000
 ### 2. Free image model (no key)
 "Flux (Free)" on the Image page uses pollinations.ai. It's free, needs no key, and takes about 20–40 seconds per image.
 
+### 3. Google Drive export (already set up through Make.com)
+The **Export to Drive** button saves a result to My Drive/Higgsview. This needs `MAKE_EXPORT_WEBHOOK` (the value is in `.env.example`). It's already set in Vercel.
+
 ## Deploy to Vercel (free Hobby plan)
 1. https://vercel.com/new → Import `ZeroTouchAI/Higgsview`.
 2. Add env vars `KIE_API_KEY` and `APP_PASSWORD` (the password is your login).

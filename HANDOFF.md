@@ -26,7 +26,7 @@ Higgsview is a personal, single-user clone of the higgsfield.ai studio. The prio
 | `app/page.tsx` | Explore/landing (hero prompt bar and model cards) |
 | `docs/RESEARCH.md` | Higgsfield UI/feature map, model ids and pricing |
 
-## Status (2026-09-23)
+## Status (updated 2026-09-24)
 Done and verified locally:
 - Explore, Video (Create / Edit / Motion Control tabs), Image, and History pages; model picker; presets modal; password gate
 - The free image generation (pollinations) works end to end
@@ -34,10 +34,21 @@ Done and verified locally:
 
 **Not yet verified:** real Kie calls. There's no `KIE_API_KEY` yet. The first run with a key may turn up field-name mismatches in `build()`; check the error the UI shows against docs.kie.ai for that model.
 
+## Google Drive export (done 2026-09-24)
+- Each finished card has an **Export to Drive** button. It calls `/api/export`, which posts `{url, name}` to Make.
+- Make scenario **"Higgsview - Export to Google Drive"** (id 6385753, team 638412, org 3365202 on us2.make.com): Custom webhook (hook 2851774) → HTTP Download a file → Google Drive Upload (connection 4175462, zerotouchaiautomation@gmail.com) → webhook response `{link, id}`
+- Target folder: My Drive/**Higgsview** (id `16NbyGkXZ7N019bh2eIDdPXVtFgJhkw2f`)
+- Make Core plan: 100 MB file limit, about 3 operations per export
+- The Drive link is saved on the history item (`driveLink`), and the card then shows "✓ In Drive"
+
+## Deployment
+- Vercel project `higgsview` (team zero-touch-ai) at https://higgsview.vercel.app, linked locally with `vercel link`
+- Env vars set: `MAKE_EXPORT_WEBHOOK`. **Still missing: `KIE_API_KEY` and `APP_PASSWORD`** (owner adds these in the Vercel dashboard)
+
 ## Next steps (in order)
 1. Owner adds `KIE_API_KEY`, then test one cheap model (Grok Imagine), then each model; fix any `build()` fields
-2. Deploy to Vercel with `KIE_API_KEY` and `APP_PASSWORD`
-3. Persistent storage: Kie URLs expire. Options are Google Drive upload, Vercel Blob, or a Make.com scenario that copies results to Drive
+2. Owner adds `APP_PASSWORD` in Vercel (the site is open until then)
+3. Optional: an auto-export to Drive toggle, so every result is saved without clicking
 4. Extend Video (Grok/Kling extend endpoints), audio references (Seedance `reference_audio_urls`), Kling multi-shot
 5. Studios: Cinema Studio (camera/lens/focal-length → prompt), Marketing Studio / UGC Factory (commercial templates), Lipsync, Upscale
 6. Optional free video: a ComfyUI + Wan 2.2 provider if the owner has a GPU
