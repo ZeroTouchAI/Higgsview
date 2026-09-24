@@ -224,9 +224,9 @@ export const MODELS: Model[] = [
   },
 
   {
-    id: "wan-animate-move", name: "Wan Animate Move", mode: "motion", tier: "budget", usdFlat: 0.3,
-    desc: "Your character image copies the moves of the reference video (dances, gestures). Cost depends on video length.",
-    durations: [], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
+    id: "wan-animate-move", name: "Wan Animate Move", mode: "motion", tier: "budget", usdPerSec: 0.0625,
+    desc: "Your character image copies the moves of the reference video (dances, gestures). ~$0.06 per second of video.",
+    durations: [-1], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
     frames: "start", needs: ["start", "video"], videoMaxSecs: 30, promptOptional: true,
     labels: { start: "Character image", video: "Motion video" },
     build: (p) => ({ model: "wan/2-2-animate-move", input: { video_url: p.video, image_url: p.start, resolution: p.resolution } }),
@@ -236,7 +236,7 @@ export const MODELS: Model[] = [
   // Kling 3.0 Omni Transformation: video + up to 4 reference photos + instruction. Unlike Seedance it accepts real people.
   {
     id: "genjutsu-kling", name: "Genjutsu · Real People (Kling Omni)", badge: "NEW", mode: "swap", tier: "premium",
-    usdPerSec: { "720p": 0.14, "1080p": 0.2 }, // estimate until the first real run reports the cost
+    usdPerSec: { "720p": 0.1, "1080p": 0.15 }, // 720p measured 2026-09-24: 5s = $0.50; 1080p estimated
     desc: "Swap people, outfits, products or the whole look in your video — works with real people. Say what to change; refer to your photos as “the person in image 1”. Video: 3–15s.",
     durations: [-1], aspects: ["9:16", "16:9", "1:1"], resolutions: ["720p", "1080p"], defaultRes: "720p", audio: true,
     frames: "none", refs: 4, needs: ["video"], videoMaxSecs: 15, videoMinSide: 720,
@@ -261,9 +261,9 @@ export const MODELS: Model[] = [
     "Keep the reference video identical in motion, camera, timing, lighting and every other detail, except replace the element described below with the one shown in the reference images."),
   // ---------- VIDEO: Swap ----------
   {
-    id: "wan-animate-replace", name: "Character Swap (full body)", badge: "TOP", mode: "swap", tier: "budget", usdFlat: 0.3,
-    desc: "Replace the person in any video with your character, keeping their exact motion, lighting and scene. Cost depends on video length.",
-    durations: [], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
+    id: "wan-animate-replace", name: "Character Swap (full body)", badge: "TOP", mode: "swap", tier: "standard", usdPerSec: 0.0625, // measured: 29s video = $1.81
+    desc: "Replace the main person in any video with your character, keeping their exact motion, lighting and scene. ~$0.06 per second of video.",
+    durations: [-1], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
     frames: "start", needs: ["start", "video"], videoMaxSecs: 30, promptOptional: true,
     labels: { video: "Original video", start: "New character" },
     build: (p) => ({ model: "wan/2-2-animate-replace", input: { video_url: p.video, image_url: p.start, resolution: p.resolution } }),
