@@ -78,6 +78,7 @@ Done and verified locally:
 - **Cinema Studio** (`/cinema`): camera, lens, focal length, aperture, up to 3 stacked moves, Photo/Video mode; the choices become prompt language and are sent to the chosen model.
 - **Spending** (`/spend`): Kie balance, today/7d/30d/all-time, 14-day bars, by tool, by type, every charge. History DELETE is now a soft delete (`hidden`) so Spending stays accurate.
 - **App videos moved off Seedance** (it blocks real faces): Draft = Grok Imagine 480p, Standard = Kling 3.0 std, Premium = Kling 3.0 pro + sound.
+- **Live-tested:** FLUX.2 Pro ($0.025), Suno music ($0.06, 2 tracks returned and we keep the first; the URL is in `resultJson.data[].audio_url`, picked up by the regex fallback in api/history), Effect "Floating Fall" Draft via Grok ($0.07). Debug any Kie job with `GET /api/raw?id=<taskId>` (login required).
 - Pages are keyed by their query string (menu clicks reset state). "Continue →" passes the last frame as `?start=`.
 
 ## Google Drive export (done 2026-09-24)
