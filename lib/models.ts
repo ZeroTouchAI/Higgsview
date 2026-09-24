@@ -287,9 +287,9 @@ export const MODELS: Model[] = [
     build: (p) => ({ model: "kling/ai-avatar-standard", input: { image_url: p.start, audio_url: p.audioUrl, prompt: p.prompt || "Natural talking to camera" } }),
   },
   {
-    id: "tts", name: "ElevenLabs Voice", mode: "tool", output: "audio", tier: "budget", usdFlat: 0.03,
+    id: "tts", name: "ElevenLabs Voice (Multilingual v2)", mode: "tool", output: "audio", tier: "budget", usdFlat: 0.03,
     desc: "Text to natural speech.", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
-    build: (p) => ({ model: "elevenlabs/text-to-speech-turbo-2-5", input: { text: p.prompt, voice: p.voice || "EkK5I93UQWFDigLMpZcX" } }),
+    build: (p) => ({ model: "elevenlabs/text-to-speech-multilingual-v2", input: { text: p.prompt, voice: p.voice || "EkK5I93UQWFDigLMpZcX" } }),
   },
 
   // ---------- IMAGE ----------
