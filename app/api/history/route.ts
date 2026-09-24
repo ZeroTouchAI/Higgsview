@@ -7,7 +7,7 @@ import type { Item } from "@/lib/history";
 // Turn cryptic provider errors into what to do next.
 function explain(msg: string) {
   if (/sensitive|real person|real human|likeness/i.test(msg))
-    return `${msg} Seedance (Genjutsu) blocks real people's faces. For swapping real people use "Character Swap (full body)" in the Genjutsu tab, or Motion Control.`;
+    return `${msg} Seedance blocks real people's faces. For real people use "Genjutsu · Real People (Kling Omni)" or "Character Swap (full body)" in the Genjutsu tab.`;
   return msg;
 }
 

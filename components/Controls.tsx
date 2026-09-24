@@ -2,9 +2,9 @@
 import { useRef, useState } from "react";
 
 // Uploads straight from the browser to our Blob store via a presigned URL (any size), then returns a URL Kie can read.
-export function Upload({ label, accept, value, onChange, optional, maxPixels, maxSecs, compact }: {
+export function Upload({ label, accept, value, onChange, optional, maxPixels, maxSecs, minSide, compact }: {
   label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number) => void;
-  optional?: boolean; maxPixels?: number; maxSecs?: number; compact?: boolean;
+  optional?: boolean; maxPixels?: number; maxSecs?: number; minSide?: number; compact?: boolean;
 }) {
   const [status, setStatus] = useState(""); // non-empty while converting/uploading
   const [err, setErr] = useState("");
@@ -24,13 +24,15 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
         const px = meta ? meta.w * meta.h : 0;
         const badPx = !!maxPixels && !!meta && (px > maxPixels || px < 409600);
         const tooLong = !!maxSecs && !!meta && meta.seconds > maxSecs - 0.5; // Kie measures length its own way (audio can run long): keep a margin
-        if (meta && (badPx || tooLong || !!maxPixels)) { // maxPixels = Seedance: always normalize (fps must be 23.8–60)
-          const k = badPx ? Math.sqrt(921600 / px) : Math.min(1, 1920 / Math.max(meta.w, meta.h));
+        const tooSmall = !!minSide && !!meta && Math.min(meta.w, meta.h) < minSide;
+        // Seedance/Kling-Omni models: always re-encode (fps must be 24–60, odd phone formats get normalized).
+        if (meta && (badPx || tooLong || tooSmall || !!maxPixels || !!minSide)) {
+          const k = badPx ? Math.sqrt(921600 / px) : tooSmall ? minSide! / Math.min(meta.w, meta.h) : Math.min(1, 1920 / Math.max(meta.w, meta.h));
           const w = Math.round((meta.w * k) / 2) * 2, h = Math.round((meta.h * k) / 2) * 2;
           const secs = Math.min(meta.seconds, maxSecs ? maxSecs - 0.5 : Infinity); // margin: the stop timer can run a little late
           f = await resizeVideo(f, w, h, secs, (p) => setStatus(`${tooLong ? `Trimming to ${maxSecs}s` : `Preparing video`}… ${p}% (keep this tab open)`));
           seconds = secs;
-          setNote([tooLong && `Trimmed to first ${maxSecs}s`, badPx && `resized to ${w}×${h}`, "30 fps"].filter(Boolean).join(", "));
+          setNote([tooLong && `Trimmed to first ${maxSecs}s`, (badPx || tooSmall) && `resized to ${w}×${h}`, "30 fps"].filter(Boolean).join(", "));
         }
       }
       // Some models (e.g. Kling Avatar) only take JPG/PNG: convert WebP/AVIF/GIF etc. to JPG first.

@@ -41,6 +41,7 @@ export type Model = {
   defaultRes?: string; // default chip value (otherwise the last = best)
   videoMaxPixels?: number; // input video must be at most this many pixels (w×h)
   videoMaxSecs?: number; // longer input videos are trimmed in the browser before upload
+  videoMinSide?: number; // smaller input videos are upscaled in the browser (and re-encoded at 30 fps)
   // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
   // (480p/720p, no audio); higher quality or audio costs more. Real cost comes back from Kie per item.
   usdPerSec?: number | Record<string, number>; // flat rate, or per resolution
@@ -80,7 +81,7 @@ function genjutsu(kind: string, name: string, desc: string, instruction: string)
   return {
     id: `genjutsu-${kind}`, name, badge: kind === "swap" ? "NEW" : "TOP", mode: "swap", tier: "premium",
     usdPerSec: { "480p": 0.085, "720p": 0.19 }, billsInputVideo: true, defaultRes: "480p", // Kie reference-video pricing
-    desc: `${desc} Seedance blocks real people's faces: for real people use Character Swap.`,
+    desc: `${desc} Not for real people (Seedance blocks faces) — use "Real People (Kling Omni)".`,
     durations: [-1], aspects: ["adaptive", "16:9", "9:16", "1:1"], resolutions: ["480p", "720p"], audio: true,
     frames: "none", refs: 9, needs: ["video"], videoMaxPixels: 927408, videoMaxSecs: 30, promptOptional: true,
     labels: { video: "Reference video" },
@@ -231,7 +232,27 @@ export const MODELS: Model[] = [
     build: (p) => ({ model: "wan/2-2-animate-move", input: { video_url: p.video, image_url: p.start, resolution: p.resolution } }),
   },
 
-  // ---------- VIDEO: Genjutsu (Higgsfield's motion transfer / object swap, rebuilt on Seedance 2.5) ----------
+  // ---------- VIDEO: Genjutsu ----------
+  // Kling 3.0 Omni Transformation: video + up to 4 reference photos + instruction. Unlike Seedance it accepts real people.
+  {
+    id: "genjutsu-kling", name: "Genjutsu · Real People (Kling Omni)", badge: "NEW", mode: "swap", tier: "premium",
+    usdPerSec: { "720p": 0.14, "1080p": 0.2 }, // estimate until the first real run reports the cost
+    desc: "Swap people, outfits, products or the whole look in your video — works with real people. Say what to change; refer to your photos as “the person in image 1”. Video: 3–15s.",
+    durations: [-1], aspects: ["9:16", "16:9", "1:1"], resolutions: ["720p", "1080p"], defaultRes: "720p", audio: true,
+    frames: "none", refs: 4, needs: ["video"], videoMaxSecs: 15, videoMinSide: 720,
+    labels: { video: "Reference video" },
+    build: (p) => ({
+      model: "kling-3.0-omni/transformation",
+      input: {
+        prompt: `${p.prompt} Keep the original video's camera movement, body motion, timing and everything not mentioned exactly the same; use the reference image${(p.refs?.length ?? 0) > 1 ? "s" : ""} for the new appearance.`.trim(),
+        video_urls: [p.video],
+        ...(p.refs?.length ? { image_urls: p.refs, aspect_ratio: p.aspect } : { aspect_ratio: "auto" }),
+        resolution: p.resolution,
+        audio: p.audio,
+      },
+    }),
+  },
+  // Seedance 2.5 versions (Higgsfield's own engine): best quality, but ByteDance rejects real human faces.
   genjutsu("motion", "Genjutsu · Motion Transfer",
     "Keeps the video's motion, camera and timing; rebuilds the cast, location and look from your reference images.",
     "Recreate the reference video with exactly the same motion, choreography, camera movement, framing and timing, but rebuild the characters, setting and visual style from the reference images."),

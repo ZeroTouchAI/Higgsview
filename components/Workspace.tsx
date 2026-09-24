@@ -107,7 +107,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
         {(model.frames !== "none" || model.needs?.includes("video")) && (
           <div className="grid grid-cols-2 gap-2">
             {model.needs?.includes("video") && (
-              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs}
+              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs} minSide={model.videoMinSide}
                 onChange={(video, videoSecs) => setMedia((m) => ({ ...m, video, videoSecs }))} />
             )}
             {model.frames !== "none" && (
@@ -143,6 +143,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
             placeholder={
               extendFrom ? "What happens next? e.g. “The camera pulls back to reveal the whole city”"
+                : model.id === "genjutsu-kling" ? "e.g. “Replace the man on the right with the woman in image 1”"
                 : model.id === "genjutsu-swap" ? "What to swap, e.g. “Replace the sneaker with the product in image 1”"
                 : model.id === "genjutsu-motion" ? "e.g. “The woman in image 1 performs this, in the kitchen from image 2”"
                 : model.id === "suno-music" ? "Upbeat modern corporate background music, confident and inspiring, 30 seconds"

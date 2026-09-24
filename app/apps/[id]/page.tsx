@@ -60,7 +60,7 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
             {[...app.inputs, ...(app.optional ?? [])].map(([k, label]) => (
               <Upload key={k} label={label} accept={k === "video" ? "video/*" : k === "audioUrl" ? "audio/*" : "image/*"}
                 value={input[k]} onChange={(url) => set({ [k]: url })} optional={app.optional?.some(([o]) => o === k)}
-                maxPixels={k === "video" ? videoModel?.videoMaxPixels : undefined} maxSecs={k === "video" ? videoModel?.videoMaxSecs : undefined} />
+                maxPixels={k === "video" ? videoModel?.videoMaxPixels : undefined} maxSecs={k === "video" ? videoModel?.videoMaxSecs : undefined} minSide={k === "video" ? videoModel?.videoMinSide : undefined} />
             ))}
           </div>
         )}

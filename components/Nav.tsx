@@ -117,21 +117,20 @@ function NavInner() {
   return (
     <header className="sticky top-0 z-40 border-b border-line/60 bg-bg/90 backdrop-blur">
       <div className="flex h-14 items-center gap-1 px-4">
-        <Link href="/" className="mr-3 flex items-center gap-2" aria-label="Higgsview home">
+        <Link href="/" className="mr-1 shrink-0" aria-label="Higgsview home" title="Higgsview">
           <span className="grid size-8 place-items-center rounded-lg bg-fg text-lg font-black text-black">H</span>
-          <span className="hidden font-bold tracking-tight sm:inline">Higgsview</span>
         </Link>
-        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
-          <Link href="/" className={`shrink-0 rounded-lg px-2.5 py-1.5 font-medium hover:text-fg ${path === "/" ? "text-lime" : "text-muted"}`}>Explore</Link>
+        <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Link href="/" className={`shrink-0 rounded-lg px-2 py-1.5 font-medium hover:text-fg ${path === "/" ? "text-lime" : "text-muted"}`}>Explore</Link>
           {Object.keys(MENUS).map((name) => (
             <button key={name} aria-expanded={open === name} onClick={() => setOpen(open === name ? undefined : name)}
-              className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium hover:text-fg ${open === name || path === `/${name.toLowerCase()}` ? "text-lime" : "text-muted"}`}>
+              className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 font-medium hover:text-fg ${open === name || path === `/${name.toLowerCase()}` ? "text-lime" : "text-muted"}`}>
               {name} <span aria-hidden className={`text-[10px] transition-transform ${open === name ? "rotate-180" : ""}`}>▾</span>
             </button>
           ))}
           {LINKS.map(([label, href, tag]) => (
             <Link key={label} href={href}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-medium transition-colors hover:text-fg ${current(href) ? "text-lime" : "text-muted"}`}>
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium transition-colors hover:text-fg ${current(href) ? "text-lime" : "text-muted"}`}>
               {label}
               {tag && <span className="rounded-md bg-lime/15 px-1.5 text-[10px] font-bold text-lime">{tag}</span>}
             </Link>
