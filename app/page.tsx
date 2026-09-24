@@ -41,7 +41,7 @@ export default function Explore() {
               <div className="flex items-center gap-2">
                 <h3 className="font-bold">{m.name}</h3>
                 {m.badge && <span className="rounded bg-lime px-1 text-[10px] font-black text-black italic">{m.badge}</span>}
-                <span className="ml-auto text-xs text-muted">≈${estimateUsd(m, m.durations[0]).toFixed(2)}/{m.durations[0]}s</span>
+                <span className="ml-auto text-xs text-muted">from ≈${estimateUsd(m, m.durations[0], m.resolutions[0]).toFixed(2)}/{m.durations[0]}s</span>
               </div>
               <p className="flex-1 text-sm text-muted">{m.desc}</p>
               <Link href={`/video?model=${m.id}`} className="rounded-xl bg-chip py-2 text-center text-sm font-semibold hover:bg-line">Generate</Link>

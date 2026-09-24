@@ -27,6 +27,7 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
   const ready = app.inputs.every(([k]) => input[k]) && (!app.text || app.text.optional || input.text?.trim());
 
   async function run() {
+    if (cost > 2 && !confirm(`This will cost about $${cost.toFixed(2)} on Kie.ai. Continue?`)) return;
     setBusy(true); setError("");
     try {
       const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify({ appId: id, input: { ...input, choice } }) }).then((r) => r.json());

@@ -53,3 +53,7 @@ The costs above are estimates. The app records the **real** cost Kie reports (`c
 | Kling 3.0 Turbo | 5s 720p | $0.45 |
 
 All 7 succeeded on the first try. Seedance 2.5, Seedance 2.0, Kling 3.0, Veo 3.1, Wan Edit and Kling Motion Control haven't been live-tested yet.
+
+## Seedance 2.5 real pricing on Kie (via cellcog.ai write-up, 2026-09)
+- Text/image-to-video: 480p $0.14/s, 720p $0.315/s, 1080p unpublished.
+- **Reference-video mode (Genjutsu): 480p $0.085/s, 720p $0.19/s, billed on input seconds + output seconds.** A 29.5s swap at 720p ≈ $11, at 480p ≈ $5. A job needing more than the balance fails with "Credits insufficient" (not charged).

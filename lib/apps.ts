@@ -258,6 +258,6 @@ export function appStep(app: App, n: number, input: AppInput, prev?: string) {
 export function appCost(app: App, input: AppInput) {
   return app.steps.reduce((sum, _, n) => {
     const { m, params } = appStep(app, n, input, "https://prev");
-    return sum + estimateUsd(m, params.duration > 0 ? params.duration : 10);
+    return sum + estimateUsd(m, params.duration > 0 ? params.duration : 10, params.resolution);
   }, 0);
 }

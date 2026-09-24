@@ -39,10 +39,11 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
   const items = useHistory();
 
   const seconds = duration > 0 ? duration : media.videoSecs ?? 10;
-  const cost = estimateUsd(model, seconds);
+  const cost = estimateUsd(model, seconds, resolution);
   const label = (k: "start" | "end" | "video", fallback: string) => model.labels?.[k] ?? fallback;
 
   async function generate() {
+    if (cost > 2 && !confirm(`This will cost about $${cost.toFixed(2)} on Kie.ai. Continue?`)) return;
     setError("");
     setBusy(true);
     const fullPrompt = [prompt.trim(), preset.prompt].filter(Boolean).join(" ");
@@ -223,7 +224,7 @@ function ModelPicker({ models, value, onPick, onClose }: { models: Model[]; valu
         <p className="px-2 pb-1 text-xs text-muted">✦ Featured models</p>
         <ul className="max-h-[60vh] overflow-y-auto">
           {list.map((m) => {
-            const c = estimateUsd(m, m.durations[0] ?? 0) || estimateUsd(m, 10);
+            const c = estimateUsd(m, m.durations[0] > 0 ? m.durations[0] : 10, m.resolutions[0]); // cheapest setting
             return (
               <li key={m.id}>
                 <button onClick={() => onPick(m.id)} className={`flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-chip ${m.id === value ? "bg-chip" : ""}`}>
@@ -236,7 +237,7 @@ function ModelPicker({ models, value, onPick, onClose }: { models: Model[]; valu
                     <span className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted">
                       <span className="rounded bg-line px-1">{m.resolutions.at(-1)}</span>
                       {m.durations[0] > 0 && <span className="rounded bg-line px-1">{m.durations[0]}s-{m.durations.at(-1)}s</span>}
-                      <span className="rounded bg-line px-1">{TIER_LABEL[m.tier]} · {c === 0 ? "Free" : `≈$${c.toFixed(2)}`}</span>
+                      <span className="rounded bg-line px-1">{TIER_LABEL[m.tier]} · {c === 0 ? "Free" : `from ≈$${c.toFixed(2)}`}</span>
                     </span>
                   </span>
                   {m.id === value && <span className="text-lime">✓</span>}

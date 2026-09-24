@@ -41,8 +41,9 @@ export type Model = {
   videoMaxSecs?: number; // longer input videos are trimmed in the browser before upload
   // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
   // (480p/720p, no audio); higher quality or audio costs more. Real cost comes back from Kie per item.
-  usdPerSec?: number;
+  usdPerSec?: number | Record<string, number>; // flat rate, or per resolution
   usdFlat?: number;
+  billsInputVideo?: boolean; // Kie bills input video seconds + output seconds (Seedance reference-video mode)
   build: (p: Params) => { model: string; input: Record<string, unknown> } | { url: string };
 };
 
@@ -75,7 +76,8 @@ const seedance = (model: string, extra: Partial<Model>): Model => ({
 
 function genjutsu(kind: string, name: string, desc: string, instruction: string): Model {
   return {
-    id: `genjutsu-${kind}`, name, badge: kind === "swap" ? "NEW" : "TOP", mode: "swap", tier: "premium", usdPerSec: 0.12,
+    id: `genjutsu-${kind}`, name, badge: kind === "swap" ? "NEW" : "TOP", mode: "swap", tier: "premium",
+    usdPerSec: { "480p": 0.085, "720p": 0.19 }, billsInputVideo: true, // Kie reference-video pricing
     desc: `${desc} Input video: 2-30s, 480p or 720p.`,
     durations: [-1], aspects: ["adaptive", "16:9", "9:16", "1:1"], resolutions: ["480p", "720p"], audio: true,
     frames: "none", refs: 9, needs: ["video"], videoMaxPixels: 927408, videoMaxSecs: 30, promptOptional: true,
@@ -96,7 +98,7 @@ function genjutsu(kind: string, name: string, desc: string, instruction: string)
 export const MODELS: Model[] = [
   // ---------- VIDEO: Create ----------
   seedance("bytedance/seedance-2-5", {
-    name: "Seedance 2.5", badge: "TOP", tier: "premium", usdPerSec: 0.12,
+    name: "Seedance 2.5", badge: "TOP", tier: "premium", usdPerSec: { "480p": 0.14, "720p": 0.315, "1080p": 0.7 }, // 1080p unpublished: guess
     durations: [5, 8, 10, 15, 20, 25, 30], resolutions: ["480p", "720p", "1080p"],
     desc: "Most advanced video model. Native audio, lip-sync, SFX in one pass.",
   }),
@@ -332,8 +334,11 @@ export const MODELS: Model[] = [
 export const byId = (id: string) => MODELS.find((m) => m.id === id);
 
 // `seconds`: clip length; for "match input video" models (duration -1) pass the uploaded video's length.
-export function estimateUsd(m: Model, seconds: number) {
-  return m.usdFlat ?? (m.usdPerSec ?? 0) * Math.max(seconds, 0);
+// Rates: measured or from Kie/pricing write-ups (2026-09-24); real cost is recorded per item from Kie.
+export function estimateUsd(m: Model, seconds: number, resolution = m.resolutions.at(-1)!) {
+  if (m.usdFlat != null) return m.usdFlat;
+  const rate = typeof m.usdPerSec === "object" ? m.usdPerSec[resolution] ?? Math.max(...Object.values(m.usdPerSec)) : m.usdPerSec ?? 0;
+  return rate * Math.max(seconds, 0) * (m.billsInputVideo ? 2 : 1);
 }
 
 // Higgsfield-style presets: camera moves / looks appended to the prompt.
