@@ -292,6 +292,19 @@ export const MODELS: Model[] = [
     build: (p) => ({ model: "elevenlabs/text-to-speech-multilingual-v2", input: { text: p.prompt, voice: p.voice || "EkK5I93UQWFDigLMpZcX" } }),
   },
 
+  {
+    id: "gemini-tts", name: "Gemini Voice", mode: "tool", output: "audio", tier: "budget", usdFlat: 0.02,
+    desc: "Text to natural speech (Google Gemini 3.1 Flash TTS).", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
+    build: (p) => ({
+      model: "google/gemini-3-1-flash-tts",
+      input: {
+        temperature: 1, scene: "", sample_context: "Professional, natural voiceover.",
+        speakers: [{ speaker_id: "Speaker 1", voice_name: p.voice || "Puck" }],
+        dialogue_turns: [{ speaker_id: "Speaker 1", text: p.prompt }],
+      },
+    }),
+  },
+
   // ---------- IMAGE ----------
   {
     id: "nano-banana-2", name: "Nano Banana 2", badge: "TOP", mode: "image", tier: "standard", usdFlat: 0.04,
