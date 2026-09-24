@@ -1,8 +1,11 @@
 import { kie } from "@/lib/kie";
+import { appById, appStep } from "@/lib/apps";
+import { runModel } from "@/lib/run";
 import { mutate, readHistory } from "@/lib/store";
 import type { Item } from "@/lib/history";
 
-// GET: all items. Pending Kie tasks are checked first, so polling this endpoint advances them.
+// GET: all items. Pending Kie tasks are checked first, so polling this endpoint advances them
+// (and starts the next step of multi-step Apps).
 export async function GET() {
   const { items } = await readHistory();
   const pending = items.filter((i) => i.state === "pending" && i.taskId);
@@ -12,10 +15,24 @@ export async function GET() {
   await Promise.all(pending.map(async (i) => {
     try {
       const d = await kie(`/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(i.taskId!)}`);
+      if (d.state !== "success" && d.state !== "fail") return;
       const r = d.resultJson ? JSON.parse(d.resultJson) : {};
-      const usd = d.creditsConsumed != null ? d.creditsConsumed * 0.005 : undefined; // 1 Kie credit = $0.005
-      if (d.state === "success") done[i.id] = { state: "success", url: r.resultUrls?.[0], lastFrame: r.lastFrameUrl?.[0], usd };
-      else if (d.state === "fail") done[i.id] = { state: "fail", error: d.failMsg || "Generation failed", usd };
+      const usd = (i.usd ?? 0) + (d.creditsConsumed ?? 0) * 0.005; // running total across App steps; 1 Kie credit = $0.005
+      if (d.state === "fail") return void (done[i.id] = { state: "fail", error: d.failMsg || "Generation failed", usd });
+      const url: string | undefined = r.resultUrls?.[0];
+      const app = i.app && appById(i.app.id);
+      if (app && i.app!.step + 1 < app.steps.length && url) {
+        const step = i.app!.step + 1;
+        const { m, params } = appStep(app, step, i.app!.input, url);
+        try {
+          const next = await runModel(m, params);
+          done[i.id] = next.url ? { state: "success", url: next.url, usd } : { taskId: next.taskId, app: { ...i.app!, step }, usd };
+        } catch (e) {
+          done[i.id] = { state: "fail", error: `Step ${step + 1} failed: ${(e as Error).message}`, url, usd };
+        }
+      } else {
+        done[i.id] = { state: "success", url, lastFrame: r.lastFrameUrl?.[0], usd };
+      }
     } catch {} // transient Kie error: try again on the next poll
   }));
   if (!Object.keys(done).length) return Response.json(items);

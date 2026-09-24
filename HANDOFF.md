@@ -24,6 +24,10 @@ Higgsview is a personal, single-user clone of the higgsfield.ai studio. The prio
 | `app/api/export` | "Export to Drive": takes `{id}`, posts that item's url to the Make.com webhook (`MAKE_EXPORT_WEBHOOK`), saves `driveLink` |
 | `app/api/login`, `app/login`, `proxy.ts` | Password gate (off when `APP_PASSWORD` is unset) |
 | `components/Workspace.tsx` | Higgsfield-style left panel (tabs, preset card, uploads, prompt, audio, model picker, chips, Generate) |
+| `lib/apps.ts` | **Apps catalog** (86 Higgsfield-style one-click apps): inputs, a `choice` chip, and `steps[]`, where each step picks a model plus params. Multi-step apps chain through `prev` (the previous step's result URL). Helpers: `nano()` (Nano Banana 2 image step), `animate()` (Seedance tiers Draft/Standard/Premium = mini/fast/2.5), `productAd`, `restyleThenAnimate` |
+| `lib/run.ts` | `runModel()` and `validate()`, shared by generate (first step) and history (next steps) |
+| `app/apps`, `app/apps/[id]` | Apps gallery (categories, search) and the app runner page |
+| `components/Controls.tsx` | `Upload` (presigned Blob upload plus auto-resize of videos) and `Chip` |
 | `components/Feed.tsx` | Results grid and the "How it works" empty state |
 | `app/page.tsx` | Explore/landing (hero prompt bar and model cards) |
 | `docs/RESEARCH.md` | Higgsfield UI/feature map, model ids and pricing |
@@ -49,6 +53,14 @@ Done and verified locally:
   - Plus Wan Animate Move in Motion Control
 - Seedance reference videos must be 409,600–927,408 px and ≤30s. The upload tile **auto-converts** anything outside that range in the browser (`resizeVideo` in Workspace.tsx: canvas + MediaRecorder MP4, real time, Chrome/Edge) to about 1280×720 and trims to 30s.
 - **Not live-tested yet:** Genjutsu, Character Swap, Face Swap, Wan Animate Move, Grok Extend, Continue.
+
+## Apps (added 2026-09-24): Higgsfield's /apps rebuilt
+- Source list: higgsfield.ai/apps, 8 categories and about 90 apps (scraped 2026-09-24). **86 are implemented** in `lib/apps.ts` as prompt recipes, plus Studios (UGC Ad, Talking Avatar = ElevenLabs TTS → Kling Avatar, Lipsync, Voiceover, Topaz Upscale image/video).
+- New tool models (mode `tool`, hidden from pickers): `upscale-image`, `upscale-video` (Topaz), `remove-bg` (Recraft), `kling-avatar`, `tts` (ElevenLabs turbo 2.5, voice ids in `VOICES`).
+- An item's `app: {id, input, step}` is advanced by `GET /api/history`. Its cost is the running total across steps.
+- **Not built** (need an LLM or a real editor): Virality Predictor, Breakdown, Click-to-Ad (product URL → ad), Sticker Matchcut, Video Background Remover (no Kie model), AI Stylist preset wardrobe. ClipCut/Urban Cuts are single-generation approximations.
+- `npm run check` builds every app step with dummy inputs.
+- ponytail: two browser tabs polling at the same moment could start a chained step twice (single user, rare). Add a lock if it happens.
 
 ## Google Drive export (done 2026-09-24)
 - Each finished card has an **Export to Drive** button. It calls `/api/export`, which posts `{url, name}` to Make.

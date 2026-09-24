@@ -1,28 +1,40 @@
 import { byId, type Params } from "@/lib/models";
-import { kie } from "@/lib/kie";
+import { appById, appStep, type AppInput } from "@/lib/apps";
+import { runModel, validate } from "@/lib/run";
 import { mutate } from "@/lib/store";
 
+// Body: { modelId, params } for the studio, or { appId, input } for an App (runs its first step).
 export async function POST(req: Request) {
-  const { modelId, params } = (await req.json()) as { modelId: string; params: Params };
-  const m = byId(modelId);
-  if (!m) return Response.json({ error: "Unknown model" }, { status: 400 });
-  if (!params.prompt?.trim() && !m.promptOptional) return Response.json({ error: "Prompt is required" }, { status: 400 });
-  for (const need of m.needs ?? [])
-    if (!params[need]) return Response.json({ error: `${m.name} needs ${m.labels?.[need] ?? need}` }, { status: 400 });
+  const body = (await req.json()) as { modelId?: string; params?: Params; appId?: string; input?: AppInput };
+  const app = body.appId ? appById(body.appId) : undefined;
+  if (body.appId && !app) return Response.json({ error: "Unknown app" }, { status: 400 });
 
-  const body = m.build(params);
-  let taskId: string | undefined;
-  if (!("url" in body)) {
-    try {
-      taskId = (await kie("/api/v1/jobs/createTask", { method: "POST", body: JSON.stringify(body) })).taskId;
-    } catch (e) {
-      return Response.json({ error: (e as Error).message }, { status: 502 });
-    }
+  let m, params: Params;
+  if (app) {
+    const missing = app.inputs.find(([k]) => !body.input?.[k]);
+    if (missing) return Response.json({ error: `${app.name} needs ${missing[1]}` }, { status: 400 });
+    if (app.text && !app.text.optional && !body.input?.text?.trim()) return Response.json({ error: `${app.text.label} is required` }, { status: 400 });
+    ({ m, params } = appStep(app, 0, body.input!));
+  } else {
+    m = byId(body.modelId ?? "");
+    if (!m) return Response.json({ error: "Unknown model" }, { status: 400 });
+    params = body.params!;
+    const err = validate(m, params);
+    if (err) return Response.json({ error: err }, { status: 400 });
   }
-  const url = "url" in body ? body.url : undefined; // free/direct providers are done immediately
+
+  let run;
+  try {
+    run = await runModel(m, params);
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 502 });
+  }
   await mutate((all) => [{
-    id: crypto.randomUUID(), kind: m.mode === "image" ? "image" : "video", modelId: m.id, modelName: m.name,
-    prompt: params.prompt, taskId, url, state: url ? "success" : "pending", usd: url ? 0 : undefined, createdAt: Date.now(),
+    id: crypto.randomUUID(),
+    kind: app?.out ?? m.output ?? (m.mode === "image" ? "image" : "video"),
+    modelId: m.id, modelName: app?.name ?? m.name, prompt: app ? body.input?.text || app.name : params.prompt,
+    taskId: run.taskId, url: run.url, state: run.url ? "success" : "pending", usd: run.url ? 0 : undefined, createdAt: Date.now(),
+    ...(app && { app: { id: app.id, input: body.input!, step: 0 } }),
   }, ...all]);
   return Response.json({ ok: true });
 }

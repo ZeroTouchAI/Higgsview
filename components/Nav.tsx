@@ -10,6 +10,7 @@ const LINKS: [string, string, string?][] = [
   ["Edit", "/video?tab=edit"],
   ["Motion Control", "/video?tab=motion"],
   ["Genjutsu", "/video?tab=swap", "New"],
+  ["Apps", "/apps", "90+"],
   ["Presets", "/video?presets=1"],
   ["History", "/history"],
 ];
@@ -41,7 +42,7 @@ export default function Nav() {
       </nav>
       <div className="ml-auto flex items-center gap-2">
         <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" title="Kie.ai balance — click to top up"
-          className="flex items-center gap-1.5 rounded-lg bg-chip px-3 py-1.5 text-sm font-semibold">
+          className="flex items-center gap-1.5 rounded-lg bg-chip px-3 py-1.5 text-sm font-semibold whitespace-nowrap">
           <span className="size-2 rounded-full bg-lime" /> {bal ?? "…"}
         </a>
       </div>

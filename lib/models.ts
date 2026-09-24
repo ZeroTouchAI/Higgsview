@@ -2,7 +2,7 @@
 // `build` turns the UI's generic params into the exact Kie.ai request body.
 // Kie docs: https://docs.kie.ai (all "market" models use POST /api/v1/jobs/createTask)
 
-export type Mode = "create" | "edit" | "motion" | "swap" | "image" | "extend"; // "extend" is hidden: opened from a result card
+export type Mode = "create" | "edit" | "motion" | "swap" | "image" | "extend" | "tool"; // "extend"/"tool" are hidden: used by result cards and Apps
 export type Tier = "free" | "budget" | "standard" | "premium";
 
 export type Params = {
@@ -16,6 +16,8 @@ export type Params = {
   video?: string; // input video URL (edit / motion control / swap)
   taskId?: string; // Kie task being extended
   refs?: string[]; // extra reference images (Genjutsu)
+  audioUrl?: string; // input audio (lip-sync)
+  voice?: string; // ElevenLabs voice id
 };
 
 export type Model = {
@@ -33,7 +35,7 @@ export type Model = {
   needs?: ("start" | "end" | "video")[]; // required inputs
   labels?: Partial<Record<"start" | "end" | "video", string>>; // upload tile labels
   promptOptional?: boolean;
-  output?: "image"; // non-image tab model that returns an image
+  output?: "image" | "audio"; // model whose result isn't a video
   refs?: number; // max extra reference images
   videoMaxPixels?: number; // input video must be at most this many pixels (w×h)
   // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
@@ -50,7 +52,7 @@ const seedance = (model: string, extra: Partial<Model>): Model => ({
   tier: "standard",
   desc: "",
   durations: [5, 8, 10, 15],
-  aspects: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+  aspects: ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
   resolutions: ["480p", "720p"],
   audio: true,
   frames: "start-end",
@@ -263,6 +265,33 @@ export const MODELS: Model[] = [
     build: (p) => ({ model: "grok-imagine/extend", input: { task_id: p.taskId, prompt: p.prompt, extend_times: p.duration } }),
   },
 
+  // ---------- TOOLS (used by Apps, not listed in the pickers) ----------
+  {
+    id: "upscale-image", name: "Topaz Image Upscale", mode: "tool", output: "image", tier: "budget", usdFlat: 0.05,
+    desc: "Sharpen and enlarge an image 2× or 4×.", durations: [], aspects: ["auto"], resolutions: ["2", "4"], frames: "start", needs: ["start"], promptOptional: true,
+    build: (p) => ({ model: "topaz/image-upscale", input: { image_url: p.start, upscale_factor: p.resolution } }),
+  },
+  {
+    id: "upscale-video", name: "Topaz Video Upscale", mode: "tool", tier: "standard", usdFlat: 0.5,
+    desc: "Sharpen and enlarge a video 2× or 4×.", durations: [], aspects: ["auto"], resolutions: ["2", "4"], frames: "none", needs: ["video"], promptOptional: true,
+    build: (p) => ({ model: "topaz/video-upscale", input: { video_url: p.video, upscale_factor: p.resolution } }),
+  },
+  {
+    id: "remove-bg", name: "Background Remover", mode: "tool", output: "image", tier: "budget", usdFlat: 0.01,
+    desc: "Cut out the subject (image under 5 MB).", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "start", needs: ["start"], promptOptional: true,
+    build: (p) => ({ model: "recraft/remove-background", input: { image: p.start } }),
+  },
+  {
+    id: "kling-avatar", name: "Kling AI Avatar", mode: "tool", tier: "standard", usdFlat: 0.5,
+    desc: "Talking video from a photo + voice audio, with lip-sync.", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "start", needs: ["start"], promptOptional: true,
+    build: (p) => ({ model: "kling/ai-avatar-standard", input: { image_url: p.start, audio_url: p.audioUrl, prompt: p.prompt || "Natural talking to camera" } }),
+  },
+  {
+    id: "tts", name: "ElevenLabs Voice", mode: "tool", output: "audio", tier: "budget", usdFlat: 0.03,
+    desc: "Text to natural speech.", durations: [], aspects: ["auto"], resolutions: ["auto"], frames: "none",
+    build: (p) => ({ model: "elevenlabs/text-to-speech-turbo-2-5", input: { text: p.prompt, voice: p.voice || "EkK5I93UQWFDigLMpZcX" } }),
+  },
+
   // ---------- IMAGE ----------
   {
     id: "nano-banana-2", name: "Nano Banana 2", badge: "TOP", mode: "image", tier: "standard", usdFlat: 0.04,
@@ -271,7 +300,7 @@ export const MODELS: Model[] = [
     frames: "start",
     build: (p) => ({
       model: "nano-banana-2",
-      input: { prompt: p.prompt, image_input: p.start ? [p.start] : [], aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" },
+      input: { prompt: p.prompt, image_input: [p.start, p.end, ...(p.refs ?? [])].filter(Boolean), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" },
     }),
   },
   {

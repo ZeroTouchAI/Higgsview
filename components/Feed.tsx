@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { refreshHistory, removeItem, type Item } from "@/lib/history";
+import { appById } from "@/lib/apps";
 
 type Act = ((i: Item) => void) | undefined;
 export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { items: Item[]; kind: "video" | "image"; onReuse?: Act; onContinue?: Act; onExtend?: Act }) {
@@ -11,12 +12,13 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
         <figure key={i.id} className="overflow-hidden rounded-xl bg-panel">
           <div className="relative grid aspect-video place-items-center bg-black">
             {i.state === "success" && i.url ? (
-              i.kind === "video" ? <video src={i.url} controls loop playsInline className="size-full object-contain" />
+              i.kind === "audio" ? <audio src={i.url} controls className="w-11/12" />
+              : i.kind === "video" ? <video src={i.url} controls loop playsInline className="size-full object-contain" />
                 : <RetryImg src={i.url} alt={i.prompt} />
             ) : i.state === "pending" ? (
               <div className="flex flex-col items-center gap-2 text-sm text-muted">
                 <span className="size-8 animate-spin rounded-full border-2 border-line border-t-lime" />
-                Generating…
+                Generating…{i.app && (appById(i.app.id)?.steps.length ?? 1) > 1 && ` step ${i.app.step + 1} of ${appById(i.app.id)!.steps.length}`}
               </div>
             ) : (
               <p className="p-4 text-center text-sm text-red-300">{i.error}</p>

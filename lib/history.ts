@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import type { AppInput } from "@/lib/apps";
 
 // History lives server-side (Vercel Blob, see lib/store.ts) so every device sees the same list.
 export type Item = {
   id: string;
-  kind: "video" | "image";
+  kind: "video" | "image" | "audio";
   modelId: string;
   modelName: string;
   prompt: string;
@@ -15,6 +16,7 @@ export type Item = {
   error?: string;
   usd?: number;
   driveLink?: string; // set after "Export to Drive"
+  app?: { id: string; input: AppInput; step: number }; // multi-step App progress
   createdAt: number;
 };
 
