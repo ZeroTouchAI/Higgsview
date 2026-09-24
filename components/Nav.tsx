@@ -8,7 +8,8 @@ const LINKS: [string, string, string?][] = [
   ["Image", "/image"],
   ["Video", "/video"],
   ["Edit", "/video?tab=edit"],
-  ["Motion Control", "/video?tab=motion", "New"],
+  ["Motion Control", "/video?tab=motion"],
+  ["Genjutsu", "/video?tab=swap", "New"],
   ["Presets", "/video?presets=1"],
   ["History", "/history"],
 ];

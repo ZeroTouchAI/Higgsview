@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useHistory, type Item } from "@/lib/history";
+import { refreshHistory, removeItem, type Item } from "@/lib/history";
 
-export default function Feed({ items, kind, onReuse }: { items: Item[]; kind: "video" | "image"; onReuse?: (i: Item) => void }) {
-  const { remove, update } = useHistory();
+type Act = ((i: Item) => void) | undefined;
+export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { items: Item[]; kind: "video" | "image"; onReuse?: Act; onContinue?: Act; onExtend?: Act }) {
   if (!items.length) return <HowItWorks kind={kind} />;
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
@@ -30,9 +30,11 @@ export default function Feed({ items, kind, onReuse }: { items: Item[]; kind: "v
               <span>{new Date(i.createdAt).toLocaleString()}</span>
               <span className="ml-auto flex gap-1">
                 {onReuse && <button onClick={() => onReuse(i)} className="rounded bg-chip px-2 py-1 hover:text-fg">Reuse</button>}
+                {onContinue && i.lastFrame && <button onClick={() => onContinue(i)} title="Start a new clip from this clip's last frame" className="rounded bg-chip px-2 py-1 hover:text-fg">Continue →</button>}
+                {onExtend && i.state === "success" && i.modelId.startsWith("grok") && <button onClick={() => onExtend(i)} title="Add 6-10s to this video" className="rounded bg-chip px-2 py-1 hover:text-fg">Extend +</button>}
                 {i.url && <a href={i.url} target="_blank" rel="noreferrer" download className="rounded bg-chip px-2 py-1 hover:text-fg">Download</a>}
-                {i.url && <DriveButton item={i} onDone={(driveLink) => update(i.id, { driveLink })} />}
-                <button onClick={() => remove(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>
+                {i.url && <DriveButton item={i} />}
+                <button onClick={() => confirm("Delete this from history?") && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>
               </span>
             </div>
           </figcaption>
@@ -70,16 +72,14 @@ function RetryImg({ src, alt }: { src: string; alt: string }) {
     onError={() => tries < 5 && setTimeout(() => setTries(tries + 1), 4000)} />;
 }
 
-function DriveButton({ item, onDone }: { item: Item; onDone: (link: string) => void }) {
+function DriveButton({ item }: { item: Item }) {
   const [state, setState] = useState<"idle" | "busy" | "error">("idle");
   if (item.driveLink)
     return <a href={item.driveLink} target="_blank" rel="noreferrer" className="rounded bg-lime/15 px-2 py-1 text-lime">✓ In Drive</a>;
   async function exportIt() {
     setState("busy");
-    const ext = item.url!.match(/\.(mp4|mov|webm|png|jpe?g|webp)(\?|$)/i)?.[1] ?? (item.kind === "video" ? "mp4" : "jpg");
-    const name = `higgsview-${item.modelId}-${new Date(item.createdAt).toISOString().slice(0, 19).replace(/:/g, "-")}.${ext}`;
-    const d = await fetch("/api/export", { method: "POST", body: JSON.stringify({ url: item.url, name }) }).then((r) => r.json()).catch(() => ({}));
-    if (d.link) onDone(d.link);
+    const d = await fetch("/api/export", { method: "POST", body: JSON.stringify({ id: item.id }) }).then((r) => r.json()).catch(() => ({}));
+    if (d.link) await refreshHistory();
     else setState("error");
   }
   return (

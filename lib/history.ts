@@ -1,8 +1,7 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-// Generation history, kept in this browser's localStorage (single-user app).
-// ponytail: Kie result URLs expire (~14 days). Download keepers, or add Google Drive/Vercel Blob sync when it matters.
+// History lives server-side (Vercel Blob, see lib/store.ts) so every device sees the same list.
 export type Item = {
   id: string;
   kind: "video" | "image";
@@ -11,6 +10,7 @@ export type Item = {
   prompt: string;
   taskId?: string;
   url?: string;
+  lastFrame?: string; // Seedance returns its final frame: used by "Continue" to chain clips
   state: "pending" | "success" | "fail";
   error?: string;
   usd?: number;
@@ -18,43 +18,37 @@ export type Item = {
   createdAt: number;
 };
 
-const KEY = "hv_history";
-const read = (): Item[] => {
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }
-};
-const write = (items: Item[]) => {
-  try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {}
-  window.dispatchEvent(new Event("hv_history"));
-};
+// One shared copy for every component on the page.
+let cache: Item[] = [];
+const listeners = new Set<(items: Item[]) => void>();
+const publish = (items: Item[]) => { cache = items; listeners.forEach((l) => l(items)); };
+const load = async (r: Promise<Response>) => { const res = await r; if (res.ok) publish(await res.json()); };
+
+export const refreshHistory = () => load(fetch("/api/history"));
+export const removeItem = (id: string) => load(fetch(`/api/history?id=${id}`, { method: "DELETE" }));
+
+// One-time: move history saved by the old per-browser version up to the server.
+async function migrate() {
+  let old: Item[] = [];
+  try { old = JSON.parse(localStorage.getItem("hv_history") || "[]"); } catch {}
+  if (!old.length) return;
+  const res = await fetch("/api/history", { method: "POST", body: JSON.stringify(old) });
+  if (res.ok) { try { localStorage.removeItem("hv_history"); } catch {} }
+}
 
 export function useHistory() {
-  const [items, setItems] = useState<Item[]>([]);
-
+  const [items, setItems] = useState(cache);
   useEffect(() => {
-    const sync = () => setItems(read());
-    sync();
-    window.addEventListener("hv_history", sync);
-    window.addEventListener("storage", sync);
-    return () => { window.removeEventListener("hv_history", sync); window.removeEventListener("storage", sync); };
+    listeners.add(setItems);
+    migrate().finally(refreshHistory);
+    return () => { listeners.delete(setItems); };
   }, []);
-
-  const update = useCallback((id: string, patch: Partial<Item>) => write(read().map((i) => (i.id === id ? { ...i, ...patch } : i))), []);
-  const add = useCallback((item: Omit<Item, "createdAt">) => write([{ ...item, createdAt: Date.now() }, ...read()]), []);
-  const remove = useCallback((id: string) => write(read().filter((i) => i.id !== id)), []);
-
-  // Poll pending Kie tasks every 5s.
-  const pending = items.filter((i) => i.state === "pending" && i.taskId).map((i) => i.id + i.taskId).join();
+  // While anything renders, poll: the server checks Kie and saves results.
+  const pending = items.some((i) => i.state === "pending");
   useEffect(() => {
     if (!pending) return;
-    const t = setInterval(async () => {
-      for (const i of read().filter((i) => i.state === "pending" && i.taskId)) {
-        const d = await fetch(`/api/task?id=${i.taskId}`).then((r) => r.json()).catch(() => null);
-        if (d?.state === "success") update(i.id, { state: "success", url: d.url, usd: d.usd });
-        else if (d?.state === "fail") update(i.id, { state: "fail", error: d.error || "Generation failed" });
-      }
-    }, 5000);
+    const t = setInterval(refreshHistory, 5000);
     return () => clearInterval(t);
-  }, [pending, update]);
-
-  return { items, add, update, remove };
+  }, [pending]);
+  return items;
 }

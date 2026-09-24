@@ -3,7 +3,7 @@ import Feed from "@/components/Feed";
 import { useHistory } from "@/lib/history";
 
 export default function HistoryPage() {
-  const { items } = useHistory();
+  const items = useHistory();
   const spent = items.reduce((s, i) => s + (i.usd ?? 0), 0);
   return (
     <div className="flex flex-col gap-4 p-4">

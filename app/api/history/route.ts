@@ -1,0 +1,39 @@
+import { kie } from "@/lib/kie";
+import { mutate, readHistory } from "@/lib/store";
+import type { Item } from "@/lib/history";
+
+// GET: all items. Pending Kie tasks are checked first, so polling this endpoint advances them.
+export async function GET() {
+  const { items } = await readHistory();
+  const pending = items.filter((i) => i.state === "pending" && i.taskId);
+  if (!pending.length) return Response.json(items);
+
+  const done: Record<string, Partial<Item>> = {};
+  await Promise.all(pending.map(async (i) => {
+    try {
+      const d = await kie(`/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(i.taskId!)}`);
+      const r = d.resultJson ? JSON.parse(d.resultJson) : {};
+      const usd = d.creditsConsumed != null ? d.creditsConsumed * 0.005 : undefined; // 1 Kie credit = $0.005
+      if (d.state === "success") done[i.id] = { state: "success", url: r.resultUrls?.[0], lastFrame: r.lastFrameUrl?.[0], usd };
+      else if (d.state === "fail") done[i.id] = { state: "fail", error: d.failMsg || "Generation failed", usd };
+    } catch {} // transient Kie error: try again on the next poll
+  }));
+  if (!Object.keys(done).length) return Response.json(items);
+  return Response.json(await mutate((all) => all.map((i) => (done[i.id] ? { ...i, ...done[i.id] } : i))));
+}
+
+// POST: import items (one-time migration of old per-browser localStorage history).
+export async function POST(req: Request) {
+  const incoming = (await req.json()) as Item[];
+  if (!Array.isArray(incoming)) return Response.json({ error: "array required" }, { status: 400 });
+  const next = await mutate((all) => {
+    const ids = new Set(all.map((i) => i.id));
+    return [...incoming.filter((i) => i?.id && !ids.has(i.id)), ...all].sort((a, b) => b.createdAt - a.createdAt);
+  });
+  return Response.json(next);
+}
+
+export async function DELETE(req: Request) {
+  const id = new URL(req.url).searchParams.get("id");
+  return Response.json(await mutate((all) => all.filter((i) => i.id !== id)));
+}

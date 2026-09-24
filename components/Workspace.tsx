@@ -2,11 +2,12 @@
 import { useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MODELS, PRESETS, byId, estimateUsd, type Mode, type Model } from "@/lib/models";
-import { useHistory } from "@/lib/history";
+import { refreshHistory, useHistory, type Item } from "@/lib/history";
 import Feed from "@/components/Feed";
 
-const TABS: [Mode, string][] = [["create", "Create Video"], ["edit", "Edit Video"], ["motion", "Motion Control"]];
+const TABS: [Mode, string][] = [["create", "Create"], ["edit", "Edit"], ["motion", "Motion Control"], ["swap", "Genjutsu"]];
 const TIER_LABEL = { free: "Free", budget: "Budget", standard: "Standard", premium: "Premium" };
+type Media = { start?: string; end?: string; video?: string; videoSecs?: number };
 
 export default function Workspace({ kind }: { kind: "video" | "image" }) {
   const sp = useSearchParams();
@@ -14,8 +15,10 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
   const tab: Mode = kind === "image" ? "image" : ((sp.get("tab") as Mode) || "create");
   const models = MODELS.filter((m) => m.mode === tab);
 
+  const [extendFrom, setExtendFrom] = useState<Item>();
   const [modelId, setModelId] = useState(sp.get("model") || models[0].id);
-  const model = byId(modelId)?.mode === tab ? byId(modelId)! : models[0];
+  const picked = byId(modelId);
+  const model = extendFrom ? byId("grok-extend")! : picked?.mode === tab ? picked : models[0];
   const [prompt, setPrompt] = useState(sp.get("prompt") || "");
   const [preset, setPreset] = useState(PRESETS[0]);
   const [dur, setDuration] = useState(0);
@@ -26,27 +29,31 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
   const aspect = model.aspects.includes(asp) ? asp : model.aspects[0];
   const resolution = model.resolutions.includes(res) ? res : model.resolutions.at(-1)!;
   const [audio, setAudio] = useState(true);
-  const [media, setMedia] = useState<{ start?: string; end?: string; video?: string }>({});
+  const [media, setMedia] = useState<Media>({});
+  const [refs, setRefs] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [picker, setPicker] = useState(false);
   const [presets, setPresets] = useState(sp.get("presets") === "1");
-  const { items, add } = useHistory();
+  const items = useHistory();
 
-  const cost = estimateUsd(model, duration);
+  const seconds = duration > 0 ? duration : media.videoSecs ?? 10;
+  const cost = estimateUsd(model, seconds);
+  const label = (k: "start" | "end" | "video", fallback: string) => model.labels?.[k] ?? fallback;
 
   async function generate() {
     setError("");
     setBusy(true);
     const fullPrompt = [prompt.trim(), preset.prompt].filter(Boolean).join(" ");
-    const params = { prompt: fullPrompt, duration, aspect, resolution, audio: audio && !!model.audio, ...media };
+    const params = {
+      prompt: fullPrompt, duration, aspect, resolution, audio: audio && !!model.audio,
+      start: media.start, end: media.end, video: media.video, refs, taskId: extendFrom?.taskId,
+    };
     try {
       const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify({ modelId: model.id, params }) }).then((r) => r.json());
       if (d.error) throw new Error(d.error);
-      add({
-        id: crypto.randomUUID(), kind, modelId: model.id, modelName: model.name, prompt: fullPrompt,
-        taskId: d.taskId, url: d.url, state: d.url ? "success" : "pending", usd: d.url ? 0 : undefined,
-      });
+      setExtendFrom(undefined);
+      await refreshHistory();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -54,53 +61,85 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
     }
   }
 
-  const ready = (prompt.trim() || tab === "motion") && (model.needs ?? []).every((n) => media[n]);
+  const ready = (prompt.trim() || model.promptOptional) && (model.needs ?? []).every((n) => media[n]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 lg:h-[calc(100vh-3.5rem)] lg:flex-row">
       {/* ---------- Left control panel ---------- */}
       <aside className="flex w-full shrink-0 flex-col gap-2 overflow-y-auto rounded-2xl bg-panel p-3 lg:w-[360px]">
         {kind === "video" && (
-          <div role="tablist" className="flex gap-4 border-b border-line px-1 text-sm font-semibold">
-            {TABS.map(([t, label]) => (
-              <button key={t} role="tab" aria-selected={tab === t} onClick={() => router.replace(`/video?tab=${t}`)}
+          <div role="tablist" className="flex gap-4 border-b border-line px-1 text-sm font-semibold whitespace-nowrap">
+            {TABS.map(([t, name]) => (
+              <button key={t} role="tab" aria-selected={tab === t} onClick={() => { setExtendFrom(undefined); router.replace(`/video?tab=${t}`); }}
                 className={`-mb-px border-b-2 pb-2 transition-colors ${tab === t ? "border-fg text-fg" : "border-transparent text-muted hover:text-fg"}`}>
-                {label}
+                {name}
               </button>
             ))}
           </div>
         )}
 
-        {/* Preset card */}
-        <div className="relative flex h-28 flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br from-[#3a2a12] via-[#1d1d1d] to-[#0f2a1f] p-3">
-          <button onClick={() => setPresets(true)} className="absolute top-2 right-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs font-semibold backdrop-blur hover:bg-black/70">
-            ✎ Change
-          </button>
-          <div className="text-xl font-black tracking-tight text-lime uppercase">{preset.name}</div>
-          <div className="text-xs text-fg/80">{model.name}</div>
+        {/* Preset card (or the clip being extended) */}
+        <div className="relative flex h-28 shrink-0 flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br from-[#3a2a12] via-[#1d1d1d] to-[#0f2a1f] p-3">
+          {extendFrom ? (
+            <>
+              <button onClick={() => setExtendFrom(undefined)} className="absolute top-2 right-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs font-semibold backdrop-blur hover:bg-black/70">✕ Cancel</button>
+              <div className="text-xl font-black tracking-tight text-lime uppercase">Extend video</div>
+              <div className="line-clamp-1 text-xs text-fg/80">{extendFrom.prompt}</div>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setPresets(true)} className="absolute top-2 right-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs font-semibold backdrop-blur hover:bg-black/70">✎ Change</button>
+              <div className="text-xl font-black tracking-tight text-lime uppercase">{preset.name}</div>
+              <div className="text-xs text-fg/80">{model.name}</div>
+            </>
+          )}
         </div>
+        {!extendFrom && <p className="px-1 text-xs text-muted">{model.desc}</p>}
 
         {/* Inputs */}
         {(model.frames !== "none" || model.needs?.includes("video")) && (
           <div className="grid grid-cols-2 gap-2">
             {model.needs?.includes("video") && (
-              <Upload label={tab === "motion" ? "Motion video" : "Input video"} accept="video/*" value={media.video} onChange={(video) => setMedia((m) => ({ ...m, video }))} />
+              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels}
+                onChange={(video, videoSecs) => setMedia((m) => ({ ...m, video, videoSecs }))} />
             )}
             {model.frames !== "none" && (
-              <Upload label={tab === "motion" ? "Character image" : kind === "image" ? "Reference" : "Start frame"} accept="image/*"
+              <Upload label={label("start", kind === "image" ? "Reference" : "Start frame")} accept="image/*"
                 value={media.start} onChange={(start) => setMedia((m) => ({ ...m, start }))} optional={!model.needs?.includes("start")} />
             )}
             {model.frames === "start-end" && (
-              <Upload label="End frame" accept="image/*" value={media.end} onChange={(end) => setMedia((m) => ({ ...m, end }))} optional />
+              <Upload label={label("end", "End frame")} accept="image/*" value={media.end} onChange={(end) => setMedia((m) => ({ ...m, end }))} optional={!model.needs?.includes("end")} />
             )}
+          </div>
+        )}
+        {!!model.refs && (
+          <div className="flex flex-col gap-1">
+            <span className="px-1 text-xs font-semibold text-muted">Reference images ({refs.length}/{model.refs}) · refer to them as “image 1”, “image 2”…</span>
+            <div className="grid grid-cols-4 gap-2">
+              {refs.map((r, i) => (
+                <div key={r} className="relative aspect-square overflow-hidden rounded-lg bg-chip">
+                  <img src={r} alt={`Reference ${i + 1}`} className="size-full object-cover" />
+                  <span className="absolute bottom-0.5 left-1 text-[10px] font-bold drop-shadow">{i + 1}</span>
+                  <button onClick={() => setRefs(refs.filter((x) => x !== r))} aria-label={`Remove image ${i + 1}`} className="absolute top-0.5 right-0.5 rounded bg-black/70 px-1 text-[10px]">✕</button>
+                </div>
+              ))}
+              {refs.length < model.refs && (
+                <div className="aspect-square"><Upload label="Add" accept="image/*" compact onChange={(u) => u && setRefs((r) => [...r, u])} /></div>
+              )}
+            </div>
           </div>
         )}
 
         {/* Prompt */}
         <label className="flex flex-col gap-1 rounded-xl bg-chip p-3">
-          <span className="text-xs font-semibold text-muted">Prompt</span>
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={5}
-            placeholder={kind === "image" ? "Describe the image you want…" : "Describe the scene, subject, action and camera — e.g. “A sneaker spinning on a wet neon street, slow motion”"}
+          <span className="text-xs font-semibold text-muted">Prompt{model.promptOptional && " (optional)"}</span>
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4}
+            placeholder={
+              extendFrom ? "What happens next? e.g. “The camera pulls back to reveal the whole city”"
+                : model.id === "genjutsu-swap" ? "What to swap, e.g. “Replace the sneaker with the product in image 1”"
+                : model.id === "genjutsu-motion" ? "e.g. “The woman in image 1 performs this, in the kitchen from image 2”"
+                : kind === "image" ? "Describe the image you want…"
+                : "Describe the scene, subject, action and camera — e.g. “A sneaker spinning on a wet neon street, slow motion”"}
             className="resize-none bg-transparent text-sm outline-none placeholder:text-muted/70" />
         </label>
 
@@ -115,21 +154,24 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
         )}
 
         {/* Model selector */}
-        <div className="relative">
-          <button onClick={() => setPicker(!picker)} aria-expanded={picker}
-            className="flex w-full items-center justify-between rounded-xl bg-chip px-3 py-2.5 text-left hover:bg-line">
-            <span>
-              <span className="block text-xs text-muted">Model</span>
-              <span className="text-sm font-semibold">{model.name}</span>
-            </span>
-            <span className="text-muted">›</span>
-          </button>
-          {picker && <ModelPicker models={models} value={model.id} onPick={(id) => { setModelId(id); setPicker(false); }} onClose={() => setPicker(false)} />}
-        </div>
+        {!extendFrom && (
+          <div className="relative">
+            <button onClick={() => setPicker(!picker)} aria-expanded={picker}
+              className="flex w-full items-center justify-between rounded-xl bg-chip px-3 py-2.5 text-left hover:bg-line">
+              <span>
+                <span className="block text-xs text-muted">Model</span>
+                <span className="text-sm font-semibold">{model.name}</span>
+              </span>
+              <span className="text-muted">›</span>
+            </button>
+            {picker && <ModelPicker models={models} value={model.id} onPick={(id) => { setModelId(id); setPicker(false); }} onClose={() => setPicker(false)} />}
+          </div>
+        )}
 
         {/* Option chips */}
         <div className="flex flex-wrap gap-2">
-          {model.durations.length > 0 && <Chip label="Duration" value={duration} options={model.durations} fmt={(d) => `${d}s`} onChange={(v) => setDuration(Number(v))} />}
+          {model.durations.length > 1 && <Chip label="Duration" value={duration} options={model.durations} fmt={(d) => `${extendFrom ? "+" : ""}${d}s`} onChange={(v) => setDuration(Number(v))} />}
+          {model.durations[0] === -1 && <span className="rounded-lg bg-chip px-3 py-1.5 text-sm text-muted">Length: matches video</span>}
           {model.aspects.length > 1 && <Chip label="Aspect ratio" value={aspect} options={model.aspects} onChange={setAspect} />}
           {model.resolutions.length > 1 && <Chip label="Quality" value={resolution} options={model.resolutions} onChange={setResolution} />}
         </div>
@@ -137,20 +179,82 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
         {error && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
         <button onClick={generate} disabled={busy || !ready}
-          className="mt-auto flex items-center justify-center gap-2 rounded-xl bg-lime py-3.5 font-bold text-black shadow-[0_0_24px_rgba(209,254,23,.25)] transition hover:brightness-110 disabled:opacity-40">
-          {busy ? "Sending…" : "Generate"} <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ {cost === 0 ? "Free" : `≈$${cost.toFixed(2)}`}</span>
+          className="mt-auto flex shrink-0 items-center justify-center gap-2 rounded-xl bg-lime py-3.5 font-bold text-black shadow-[0_0_24px_rgba(209,254,23,.25)] transition hover:brightness-110 disabled:opacity-40">
+          {busy ? "Sending…" : extendFrom ? "Extend" : "Generate"} <span className="rounded-md bg-black/10 px-1.5 text-xs">✦ {cost === 0 ? "Free" : `≈$${cost.toFixed(2)}`}</span>
         </button>
       </aside>
 
       {/* ---------- Right: results ---------- */}
       <main className="min-h-[60vh] flex-1 overflow-y-auto rounded-2xl bg-panel/40 p-3">
-        <Feed items={items.filter((i) => i.kind === kind)} kind={kind}
-          onReuse={(i) => { setPrompt(i.prompt); if (byId(i.modelId)?.mode === tab) setModelId(i.modelId); }} />
+        <Feed items={items.filter((i) => i.kind === kind || (kind === "video" && byId(i.modelId)?.mode !== "image"))} kind={kind}
+          onReuse={(i) => { setPrompt(i.prompt); if (byId(i.modelId)?.mode === tab) setModelId(i.modelId); }}
+          onContinue={kind === "video" ? (i) => {
+            // Chain clips: the last frame of this clip becomes the start frame of the next.
+            if (tab !== "create") router.replace("/video?tab=create");
+            setExtendFrom(undefined); setMedia({ start: i.lastFrame }); setPrompt("");
+            if (byId(i.modelId)?.mode === "create") setModelId(i.modelId);
+          } : undefined}
+          onExtend={kind === "video" ? (i) => { setExtendFrom(i); setPrompt(""); } : undefined} />
       </main>
 
       {presets && <PresetModal onPick={(p) => { setPreset(p); setPresets(false); }} onClose={() => setPresets(false)} />}
     </div>
   );
+}
+
+// Uploads straight from the browser to our Blob store via a presigned URL (any size), then returns a URL Kie can read.
+function Upload({ label, accept, value, onChange, optional, maxPixels, compact }: {
+  label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number) => void;
+  optional?: boolean; maxPixels?: number; compact?: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  async function pick(f?: File) {
+    if (!f) return;
+    setErr("");
+    let seconds: number | undefined;
+    if (f.type.startsWith("video/")) {
+      const meta = await videoMeta(f);
+      seconds = meta?.seconds;
+      if (maxPixels && meta && meta.w * meta.h > maxPixels)
+        return setErr(`Video is ${meta.w}×${meta.h}. This model needs 720p or smaller: export at 720p (e.g. in CapCut) and upload again.`);
+    }
+    setBusy(true);
+    try {
+      const d = await fetch("/api/upload", { method: "POST", body: JSON.stringify({ name: f.name, type: f.type, size: f.size }) }).then((r) => r.json());
+      if (d.error) throw new Error(d.error);
+      const put = await fetch(d.putUrl, { method: "PUT", body: f, headers: { "Content-Type": f.type } });
+      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+      onChange(d.getUrl, seconds);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className={`relative overflow-hidden rounded-xl border border-dashed border-line bg-chip text-center text-xs ${compact ? "size-full" : "aspect-[4/3]"}`}>
+      <button type="button" onClick={() => input.current?.click()} className="flex size-full flex-col items-center justify-center gap-1 p-2 hover:bg-line"
+        onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files[0]); }}>
+        {value ? (accept.startsWith("video") ? <video src={value} muted className="absolute inset-0 size-full object-cover" /> : <img src={value} alt={label} className="absolute inset-0 size-full object-cover" />)
+          : <><span className="text-lg">＋</span><span className="font-semibold">{busy ? "Uploading…" : label}</span>
+            {!compact && <span className={err ? "text-red-300" : "text-muted"}>{err || (optional ? "Optional" : "Required")}</span>}</>}
+      </button>
+      {value && <button onClick={() => onChange(undefined)} aria-label={`Remove ${label}`} className="absolute top-1 right-1 rounded-md bg-black/70 px-1.5">✕</button>}
+      <input ref={input} type="file" accept={accept} hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
+    </div>
+  );
+}
+
+function videoMeta(f: File): Promise<{ w: number; h: number; seconds: number } | undefined> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => { resolve({ w: v.videoWidth, h: v.videoHeight, seconds: Math.round(v.duration) }); URL.revokeObjectURL(v.src); };
+    v.onerror = () => resolve(undefined);
+    v.src = URL.createObjectURL(f);
+  });
 }
 
 function Chip<T extends string | number>({ label, value, options, onChange, fmt = String }: { label: string; value: T; options: T[]; onChange: (v: string) => void; fmt?: (v: T) => string }) {
@@ -159,32 +263,6 @@ function Chip<T extends string | number>({ label, value, options, onChange, fmt 
       className="cursor-pointer appearance-none rounded-lg bg-chip px-3 py-1.5 text-sm font-medium outline-none hover:bg-line focus:ring-2 focus:ring-lime">
       {options.map((o) => <option key={o} value={o}>{fmt(o)}</option>)}
     </select>
-  );
-}
-
-function Upload({ label, accept, value, onChange, optional }: { label: string; accept: string; value?: string; onChange: (url?: string) => void; optional?: boolean }) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const input = useRef<HTMLInputElement>(null);
-  async function pick(f?: File) {
-    if (!f) return;
-    setBusy(true); setErr("");
-    const fd = new FormData();
-    fd.set("file", f);
-    const d = await fetch("/api/upload", { method: "POST", body: fd }).then((r) => r.json()).catch(() => ({ error: "Upload failed" }));
-    setBusy(false);
-    if (d.error) setErr(d.error); else onChange(d.url);
-  }
-  return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-dashed border-line bg-chip text-center text-xs">
-      <button type="button" onClick={() => input.current?.click()} className="flex size-full flex-col items-center justify-center gap-1 p-2 hover:bg-line"
-        onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files[0]); }}>
-        {value ? (accept.startsWith("video") ? <video src={value} muted className="absolute inset-0 size-full object-cover" /> : <img src={value} alt={label} className="absolute inset-0 size-full object-cover" />)
-          : <><span className="text-lg">＋</span><span className="font-semibold">{busy ? "Uploading…" : label}</span><span className="text-muted">{err || (optional ? "Optional" : "Required")}</span></>}
-      </button>
-      {value && <button onClick={() => onChange(undefined)} aria-label={`Remove ${label}`} className="absolute top-1 right-1 rounded-md bg-black/70 px-1.5">✕</button>}
-      <input ref={input} type="file" accept={accept} hidden onChange={(e) => pick(e.target.files?.[0])} />
-    </div>
   );
 }
 
@@ -200,7 +278,7 @@ function ModelPicker({ models, value, onPick, onClose }: { models: Model[]; valu
         <p className="px-2 pb-1 text-xs text-muted">✦ Featured models</p>
         <ul className="max-h-[60vh] overflow-y-auto">
           {list.map((m) => {
-            const c = estimateUsd(m, m.durations[0] ?? 0);
+            const c = estimateUsd(m, m.durations[0] ?? 0) || estimateUsd(m, 10);
             return (
               <li key={m.id}>
                 <button onClick={() => onPick(m.id)} className={`flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-chip ${m.id === value ? "bg-chip" : ""}`}>
@@ -212,7 +290,7 @@ function ModelPicker({ models, value, onPick, onClose }: { models: Model[]; valu
                     </span>
                     <span className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted">
                       <span className="rounded bg-line px-1">{m.resolutions.at(-1)}</span>
-                      {m.durations.length > 0 && <span className="rounded bg-line px-1">{m.durations[0]}s-{m.durations.at(-1)}s</span>}
+                      {m.durations[0] > 0 && <span className="rounded bg-line px-1">{m.durations[0]}s-{m.durations.at(-1)}s</span>}
                       <span className="rounded bg-line px-1">{TIER_LABEL[m.tier]} · {c === 0 ? "Free" : `≈$${c.toFixed(2)}`}</span>
                     </span>
                   </span>

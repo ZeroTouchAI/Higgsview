@@ -2,7 +2,7 @@
 // `build` turns the UI's generic params into the exact Kie.ai request body.
 // Kie docs: https://docs.kie.ai (all "market" models use POST /api/v1/jobs/createTask)
 
-export type Mode = "create" | "edit" | "motion" | "image";
+export type Mode = "create" | "edit" | "motion" | "swap" | "image" | "extend"; // "extend" is hidden: opened from a result card
 export type Tier = "free" | "budget" | "standard" | "premium";
 
 export type Params = {
@@ -13,7 +13,9 @@ export type Params = {
   audio: boolean;
   start?: string; // start frame / reference image URL
   end?: string; // end frame URL
-  video?: string; // input video URL (edit / motion control)
+  video?: string; // input video URL (edit / motion control / swap)
+  taskId?: string; // Kie task being extended
+  refs?: string[]; // extra reference images (Genjutsu)
 };
 
 export type Model = {
@@ -28,7 +30,12 @@ export type Model = {
   resolutions: string[];
   audio?: boolean; // supports native audio toggle
   frames: "none" | "start" | "start-end"; // image inputs supported
-  needs?: ("start" | "video")[]; // required inputs
+  needs?: ("start" | "end" | "video")[]; // required inputs
+  labels?: Partial<Record<"start" | "end" | "video", string>>; // upload tile labels
+  promptOptional?: boolean;
+  output?: "image"; // non-image tab model that returns an image
+  refs?: number; // max extra reference images
+  videoMaxPixels?: number; // input video must be at most this many pixels (w×h)
   // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
   // (480p/720p, no audio); higher quality or audio costs more. Real cost comes back from Kie per item.
   usdPerSec?: number;
@@ -52,7 +59,8 @@ const seedance = (model: string, extra: Partial<Model>): Model => ({
     input: {
       prompt: p.prompt,
       first_frame_url: p.start,
-      last_frame_url: p.end,
+      last_frame_url: p.start && p.end, // Kie rejects a last frame without a first frame
+      return_last_frame: true, // enables "Continue" (chain clips into longer videos)
       generate_audio: p.audio,
       resolution: p.resolution,
       aspect_ratio: p.aspect,
@@ -62,11 +70,31 @@ const seedance = (model: string, extra: Partial<Model>): Model => ({
   ...extra,
 });
 
+function genjutsu(kind: string, name: string, desc: string, instruction: string): Model {
+  return {
+    id: `genjutsu-${kind}`, name, badge: kind === "swap" ? "NEW" : "TOP", mode: "swap", tier: "premium", usdPerSec: 0.12,
+    desc: `${desc} Input video: 2-30s, 480p or 720p.`,
+    durations: [-1], aspects: ["adaptive", "16:9", "9:16", "1:1"], resolutions: ["480p", "720p"], audio: true,
+    frames: "none", refs: 9, needs: ["video"], videoMaxPixels: 927408,
+    labels: { video: "Reference video" },
+    build: (p) => ({
+      model: "bytedance/seedance-2-5",
+      input: {
+        prompt: `${instruction} ${p.prompt}`.trim(),
+        reference_video_urls: [p.video],
+        reference_image_urls: p.refs?.length ? p.refs : undefined,
+        generate_audio: p.audio, resolution: p.resolution, aspect_ratio: p.aspect,
+        duration: -1, // match the input video's length
+      },
+    }),
+  };
+}
+
 export const MODELS: Model[] = [
   // ---------- VIDEO: Create ----------
   seedance("bytedance/seedance-2-5", {
     name: "Seedance 2.5", badge: "TOP", tier: "premium", usdPerSec: 0.12,
-    resolutions: ["480p", "720p", "1080p"],
+    durations: [5, 8, 10, 15, 20, 25, 30], resolutions: ["480p", "720p", "1080p"],
     desc: "Most advanced video model. Native audio, lip-sync, SFX in one pass.",
   }),
   seedance("bytedance/seedance-2", {
@@ -167,7 +195,7 @@ export const MODELS: Model[] = [
     id: "wan-2-7-edit", name: "Wan 2.7 Edit", badge: "NEW", mode: "edit", tier: "budget", usdPerSec: 0.08,
     desc: "Upload footage and describe the change — restyle, swap objects, relight.",
     durations: [5], aspects: ["16:9", "9:16", "1:1", "4:3", "3:4"], resolutions: ["720p", "1080p"],
-    frames: "start", needs: ["video"],
+    frames: "start", needs: ["video"], labels: { start: "Reference image", video: "Input video" },
     build: (p) => ({
       model: "wan/2-7-videoedit",
       input: { prompt: p.prompt, video_url: p.video, reference_image: p.start, resolution: p.resolution, aspect_ratio: p.aspect },
@@ -179,11 +207,60 @@ export const MODELS: Model[] = [
     id: "kling-3-motion", name: "Kling 3.0 Motion Control", badge: "TOP", mode: "motion", tier: "standard", usdPerSec: 0.09,
     desc: "Upload a reference video to drive the exact pace and gestures of your character image.",
     durations: [5], aspects: ["auto"], resolutions: ["std", "pro"],
-    frames: "start", needs: ["start", "video"],
+    frames: "start", needs: ["start", "video"], promptOptional: true,
+    labels: { start: "Character image", video: "Motion video" },
     build: (p) => ({
       model: "kling-3.0/motion-control",
       input: { prompt: p.prompt, input_urls: [p.start], video_urls: [p.video], mode: p.resolution },
     }),
+  },
+
+  {
+    id: "wan-animate-move", name: "Wan Animate Move", mode: "motion", tier: "budget", usdFlat: 0.3,
+    desc: "Your character image copies the moves of the reference video (dances, gestures). Cost depends on video length.",
+    durations: [], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
+    frames: "start", needs: ["start", "video"], promptOptional: true,
+    labels: { start: "Character image", video: "Motion video" },
+    build: (p) => ({ model: "wan/2-2-animate-move", input: { video_url: p.video, image_url: p.start, resolution: p.resolution } }),
+  },
+
+  // ---------- VIDEO: Genjutsu (Higgsfield's motion transfer / object swap, rebuilt on Seedance 2.5) ----------
+  genjutsu("motion", "Genjutsu · Motion Transfer",
+    "Keeps the video's motion, camera and timing; rebuilds the cast, location and look from your reference images.",
+    "Recreate the reference video with exactly the same motion, choreography, camera movement, framing and timing, but rebuild the characters, setting and visual style from the reference images."),
+  genjutsu("swap", "Genjutsu · Object Swap",
+    "Swaps one thing (a person, outfit, product or location) with your reference and keeps the rest of the shot identical.",
+    "Keep the reference video identical in motion, camera, timing, lighting and every other detail, except replace the element described below with the one shown in the reference images."),
+  // ---------- VIDEO: Swap ----------
+  {
+    id: "wan-animate-replace", name: "Character Swap (full body)", badge: "TOP", mode: "swap", tier: "budget", usdFlat: 0.3,
+    desc: "Replace the person in any video with your character, keeping their exact motion, lighting and scene. Cost depends on video length.",
+    durations: [], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
+    frames: "start", needs: ["start", "video"], promptOptional: true,
+    labels: { video: "Original video", start: "New character" },
+    build: (p) => ({ model: "wan/2-2-animate-replace", input: { video_url: p.video, image_url: p.start, resolution: p.resolution } }),
+  },
+  {
+    id: "face-swap-image", name: "Face Swap (photo)", mode: "swap", output: "image", tier: "budget", usdFlat: 0.04,
+    desc: "Put a face onto someone in another photo (Nano Banana 2). Add a prompt for extra direction.",
+    durations: [], aspects: ["auto"], resolutions: ["1K", "2K"],
+    frames: "start-end", needs: ["start", "end"], promptOptional: true,
+    labels: { start: "Face", end: "Target photo" },
+    build: (p) => ({
+      model: "nano-banana-2",
+      input: {
+        prompt: `Replace the face of the person in the second image with the face from the first image. Keep the second image's pose, body, hair, clothing, lighting, background and framing identical; match skin tone and lighting naturally. ${p.prompt}`.trim(),
+        image_input: [p.start, p.end], aspect_ratio: "auto", resolution: p.resolution, output_format: "png",
+      },
+    }),
+  },
+
+  // ---------- VIDEO: Extend (opened from a Grok result's "Extend" button) ----------
+  {
+    id: "grok-extend", name: "Grok Imagine Extend", mode: "extend", tier: "budget", usdFlat: 0.07,
+    desc: "Continues a Grok Imagine video by 6 or 10 seconds. Repeat to go longer.",
+    durations: [6, 10], aspects: ["auto"], resolutions: ["auto"], frames: "none",
+    build: (p) => ({ model: "grok-imagine/extend", input: { task_id: p.taskId, prompt: p.prompt, extend_times: p.duration } }),
   },
 
   // ---------- IMAGE ----------
@@ -211,8 +288,9 @@ export const MODELS: Model[] = [
 
 export const byId = (id: string) => MODELS.find((m) => m.id === id);
 
-export function estimateUsd(m: Model, duration: number) {
-  return m.usdFlat ?? (m.usdPerSec ?? 0) * duration;
+// `seconds`: clip length; for "match input video" models (duration -1) pass the uploaded video's length.
+export function estimateUsd(m: Model, seconds: number) {
+  return m.usdFlat ?? (m.usdPerSec ?? 0) * Math.max(seconds, 0);
 }
 
 // Higgsfield-style presets: camera moves / looks appended to the prompt.

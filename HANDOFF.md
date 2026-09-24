@@ -15,11 +15,13 @@ Higgsview is a personal, single-user clone of the higgsfield.ai studio. The prio
 |---|---|
 | `lib/models.ts` | **Model catalog**: every model, its options, cost estimate, and `build()` that maps UI params to the Kie request. Also `PRESETS`. Add a model here and it shows up everywhere. |
 | `lib/kie.ts` | Server-side Kie fetch helper (adds the key) |
-| `lib/history.ts` | Generation history in localStorage, plus polling of pending tasks every 5s |
-| `app/api/generate` | Validate the request, build the model body, `createTask` → `{taskId}` (or `{url}` for free providers) |
-| `app/api/task` | Poll `recordInfo` → `{state, url, usd}` |
-| `app/api/upload` | Proxy a browser file to Kie temp storage and return a public URL |
+| `lib/history.ts` | Client history hook (shared cache), polls `/api/history` while items are pending, one-time localStorage → server migration |
+| `lib/store.ts` | Server history: `history.json` in the private Vercel Blob store `higgsview-data`, ETag-guarded `mutate()` |
+| `app/api/generate` | Validate the request, build the model body, `createTask`, append the item to server history |
+| `app/api/history` | GET: list, and check pending Kie tasks and save results (state, url, lastFrame, real usd). POST: import. DELETE: remove |
+| `app/api/upload` | Returns presigned Blob PUT and GET URLs: the browser uploads directly (no 4.5 MB cap), and the GET URL (24h) goes to Kie |
 | `app/api/credits` | Kie balance, shown in the nav pill |
+| `app/api/export` | "Export to Drive": takes `{id}`, posts that item's url to the Make.com webhook (`MAKE_EXPORT_WEBHOOK`), saves `driveLink` |
 | `app/api/login`, `app/login`, `proxy.ts` | Password gate (off when `APP_PASSWORD` is unset) |
 | `components/Workspace.tsx` | Higgsfield-style left panel (tabs, preset card, uploads, prompt, audio, model picker, chips, Generate) |
 | `components/Feed.tsx` | Results grid and the "How it works" empty state |
@@ -36,6 +38,18 @@ Done and verified locally:
 **Not yet live-tested:** Seedance 2.5, Seedance 2.0, Kling 3.0, Veo 3.1 (premium, owner hasn't approved spend), Wan 2.7 Edit, Kling Motion Control (need an input video). If one fails, check the UI error against docs.kie.ai for that model's `build()`.
 - Production: the password gate and Kie key are active. Env changes need a redeploy (`vercel redeploy <url> --target production`).
 
+## Features added 2026-09-24 (second session)
+- **Shared history**: moved from localStorage to Vercel Blob (store `higgsview-data`, private, env `BLOB_READ_WRITE_TOKEN`). Local dev uses the **same** store as production.
+- **Longer videos**: Seedance 2.5 up to 30s. **Continue →** (Seedance items) starts the next clip from the last frame (`return_last_frame`); **Extend +** (Grok items) uses `grok-imagine/extend` (+6s or +10s, repeatable). There's no stitching yet; clips are separate files.
+- **Genjutsu tab** (Higgsfield's "Genjutsu", on Seedance 2.5 with `reference_video_urls` and up to 9 `reference_image_urls`, `duration: -1` to match the video):
+  - Motion Transfer: keep motion and camera, rebuild the cast and scene from the images
+  - Object Swap: change one element, keep the rest
+  - Character Swap (full body): `wan/2-2-animate-replace`
+  - Face Swap (photo): nano-banana-2 with a face image and a target image
+  - Plus Wan Animate Move in Motion Control
+- Seedance reference videos must be **≤720p** (w×h ≤ 927,408 px, 2–30s). The upload tile checks this in the browser and explains how to fix it.
+- **Not live-tested yet:** Genjutsu, Character Swap, Face Swap, Wan Animate Move, Grok Extend, Continue.
+
 ## Google Drive export (done 2026-09-24)
 - Each finished card has an **Export to Drive** button. It calls `/api/export`, which posts `{url, name}` to Make.
 - Make scenario **"Higgsview - Export to Google Drive"** (id 6385753, team 638412, org 3365202 on us2.make.com): Custom webhook (hook 2851774) → HTTP Download a file → Google Drive Upload (connection 4175462, zerotouchaiautomation@gmail.com) → webhook response `{link, id}`
@@ -50,12 +64,13 @@ Done and verified locally:
 ## Next steps (in order)
 1. Live-test the premium, edit and motion models once the owner approves the spend
 2. Cost estimate could scale with resolution and audio (right now it's a flat per-second rate)
-3. Optional: an auto-export to Drive toggle, so every result is saved without clicking
-4. Extend Video (Grok/Kling extend endpoints), audio references (Seedance `reference_audio_urls`), Kling multi-shot
-5. Studios: Cinema Studio (camera/lens/focal-length → prompt), Marketing Studio / UGC Factory (commercial templates), Lipsync, Upscale
-6. Optional free video: a ComfyUI + Wan 2.2 provider if the owner has a GPU
+3. **Stitch clips** into one long video (Continue/Extend make the parts): ffmpeg in a Vercel function or ffmpeg.wasm
+4. Optional: an auto-export to Drive toggle, so every result is saved without clicking
+5. Veo 3.1 extend, audio references (Seedance `reference_audio_urls`), Kling multi-shot
+6. Studios: Cinema Studio (camera/lens/focal-length → prompt), Marketing Studio / UGC Factory (commercial templates), Lipsync, Upscale
+7. Optional free video: a ComfyUI + Wan 2.2 provider if the owner has a GPU
 
 ## Known limits
-- Uploads go through a Vercel function (~4.5 MB body cap on Vercel). Bigger videos need a direct upload.
-- History lives only in the browser (localStorage). It won't sync across devices.
+- Uploaded inputs sit in Blob under `uploads/` and aren't cleaned up (free tier is 1 GB). Add a cleanup when it matters.
+- 1080p phone videos have to be exported at 720p before using Genjutsu (Seedance limit). In-browser downscaling isn't built.
 - Cost estimates in `models.ts` are approximate. The real cost is recorded per item after completion.
