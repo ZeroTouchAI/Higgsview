@@ -40,3 +40,16 @@ The costs above are estimates. The app records the **real** cost Kie reports (`c
 ### Alternatives considered
 - fal.ai and Replicate: same models, usually pricier; fal is a good fallback if Kie is down.
 - Direct Google (Veo/Gemini) and ByteDance APIs: more keys to manage, no clear saving.
+
+## Measured costs (live test 2026-09-24, cheapest settings, no audio)
+| Model | Settings | Real cost |
+|---|---|---|
+| Grok Imagine | 6s 480p | $0.072 |
+| Seedance 2.0 Mini | 5s 480p | $0.095 |
+| Nano Banana 2 | 1K image | $0.04 |
+| Minimax Hailuo 2.3 | 6s 768P (image-to-video) | $0.15 |
+| Seedance 2.0 Fast | 5s 480p | $0.29 |
+| Wan 2.7 | 5s 720p | $0.40 |
+| Kling 3.0 Turbo | 5s 720p | $0.45 |
+
+All 7 succeeded on the first try. Seedance 2.5, Seedance 2.0, Kling 3.0, Veo 3.1, Wan Edit and Kling Motion Control haven't been live-tested yet.

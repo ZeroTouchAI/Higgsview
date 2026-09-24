@@ -32,7 +32,9 @@ Done and verified locally:
 - The free image generation (pollinations) works end to end
 - Type check, lint, and `npm run check` all pass
 
-**Not yet verified:** real Kie calls. There's no `KIE_API_KEY` yet. The first run with a key may turn up field-name mismatches in `build()`; check the error the UI shows against docs.kie.ai for that model.
+**Live-tested on production (2026-09-24):** Grok Imagine, Seedance 2.0 Mini and Fast, Kling 3.0 Turbo, Wan 2.7, Hailuo 2.3, and Nano Banana 2 all succeeded (real costs are in docs/RESEARCH.md).
+**Not yet live-tested:** Seedance 2.5, Seedance 2.0, Kling 3.0, Veo 3.1 (premium, owner hasn't approved spend), Wan 2.7 Edit, Kling Motion Control (need an input video). If one fails, check the UI error against docs.kie.ai for that model's `build()`.
+- Production: the password gate and Kie key are active. Env changes need a redeploy (`vercel redeploy <url> --target production`).
 
 ## Google Drive export (done 2026-09-24)
 - Each finished card has an **Export to Drive** button. It calls `/api/export`, which posts `{url, name}` to Make.
@@ -43,11 +45,11 @@ Done and verified locally:
 
 ## Deployment
 - Vercel project `higgsview` (team zero-touch-ai) at https://higgsview.vercel.app, linked locally with `vercel link`
-- Env vars set: `MAKE_EXPORT_WEBHOOK`. **Still missing: `KIE_API_KEY` and `APP_PASSWORD`** (owner adds these in the Vercel dashboard)
+- Env vars set: `KIE_API_KEY` and `APP_PASSWORD` (Sensitive, can't be pulled locally), plus `MAKE_EXPORT_WEBHOOK`
 
 ## Next steps (in order)
-1. Owner adds `KIE_API_KEY`, then test one cheap model (Grok Imagine), then each model; fix any `build()` fields
-2. Owner adds `APP_PASSWORD` in Vercel (the site is open until then)
+1. Live-test the premium, edit and motion models once the owner approves the spend
+2. Cost estimate could scale with resolution and audio (right now it's a flat per-second rate)
 3. Optional: an auto-export to Drive toggle, so every result is saved without clicking
 4. Extend Video (Grok/Kling extend endpoints), audio references (Seedance `reference_audio_urls`), Kling multi-shot
 5. Studios: Cinema Studio (camera/lens/focal-length → prompt), Marketing Studio / UGC Factory (commercial templates), Lipsync, Upscale

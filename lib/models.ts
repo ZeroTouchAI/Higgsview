@@ -29,7 +29,9 @@ export type Model = {
   audio?: boolean; // supports native audio toggle
   frames: "none" | "start" | "start-end"; // image inputs supported
   needs?: ("start" | "video")[]; // required inputs
-  usdPerSec?: number; // rough estimate shown on Generate button; real cost comes back from Kie
+  // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
+  // (480p/720p, no audio); higher quality or audio costs more. Real cost comes back from Kie per item.
+  usdPerSec?: number;
   usdFlat?: number;
   build: (p: Params) => { model: string; input: Record<string, unknown> } | { url: string };
 };
@@ -73,12 +75,12 @@ export const MODELS: Model[] = [
     desc: "First native audio-video model: synced lip-sync, SFX, and music.",
   }),
   seedance("bytedance/seedance-2-fast", {
-    name: "Seedance 2.0 Fast", tier: "budget", usdPerSec: 0.07,
+    name: "Seedance 2.0 Fast", tier: "budget", usdPerSec: 0.06,
     desc: "Faster, cheaper Seedance. Great for drafts.",
   }),
   seedance("bytedance/seedance-2-mini", {
-    name: "Seedance 2.0 Mini", badge: "CHEAP", tier: "budget", usdPerSec: 0.057,
-    desc: "Lowest-cost Seedance with audio.",
+    name: "Seedance 2.0 Mini", badge: "CHEAP", tier: "budget", usdPerSec: 0.02,
+    desc: "Cheapest video model: about $0.10 for a 5s 480p clip. Best for drafts.",
   }),
   {
     id: "kling-3", name: "Kling 3.0", badge: "TOP", mode: "create", tier: "standard", usdPerSec: 0.09,
@@ -98,7 +100,7 @@ export const MODELS: Model[] = [
     }),
   },
   {
-    id: "kling-3-turbo", name: "Kling 3.0 Turbo", mode: "create", tier: "budget", usdPerSec: 0.05,
+    id: "kling-3-turbo", name: "Kling 3.0 Turbo", mode: "create", tier: "standard", usdPerSec: 0.09,
     desc: "Fast, stable Kling for quick iterations.",
     durations: [5, 10], aspects: ["16:9", "9:16", "1:1"], resolutions: ["720p", "1080p"],
     frames: "start",
@@ -134,7 +136,7 @@ export const MODELS: Model[] = [
         : { model: "wan/2-7-text-to-video", input: { prompt: p.prompt, ratio: p.aspect, resolution: p.resolution, duration: p.duration } },
   },
   {
-    id: "grok-imagine", name: "Grok Imagine", badge: "CHEAP", mode: "create", tier: "budget", usdFlat: 0.1,
+    id: "grok-imagine", name: "Grok Imagine", badge: "CHEAP", mode: "create", tier: "budget", usdFlat: 0.07,
     desc: "Cheapest option. Ideal for drafting shots before a premium render.",
     durations: [6, 10], aspects: ["16:9", "9:16", "1:1", "2:3", "3:2"], resolutions: ["480p", "720p"],
     frames: "start",
