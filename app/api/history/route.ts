@@ -4,6 +4,13 @@ import { runModel } from "@/lib/run";
 import { mutate, readHistory } from "@/lib/store";
 import type { Item } from "@/lib/history";
 
+// Turn cryptic provider errors into what to do next.
+function explain(msg: string) {
+  if (/sensitive|real person|real human|likeness/i.test(msg))
+    return `${msg} Seedance (Genjutsu) blocks real people's faces. For swapping real people use "Character Swap (full body)" in the Genjutsu tab, or Motion Control.`;
+  return msg;
+}
+
 // GET: all items. Pending Kie tasks are checked first, so polling this endpoint advances them
 // (and starts the next step of multi-step Apps).
 export async function GET() {
@@ -18,7 +25,7 @@ export async function GET() {
       if (d.state !== "success" && d.state !== "fail") return;
       const r = d.resultJson ? JSON.parse(d.resultJson) : {};
       const usd = (i.usd ?? 0) + (d.creditsConsumed ?? 0) * 0.005; // running total across App steps; 1 Kie credit = $0.005
-      if (d.state === "fail") return void (done[i.id] = { state: "fail", error: d.failMsg || "Generation failed", usd });
+      if (d.state === "fail") return void (done[i.id] = { state: "fail", error: explain(d.failMsg || "Generation failed"), usd });
       const url: string | undefined = r.resultUrls?.[0];
       const app = i.app && appById(i.app.id);
       if (app && i.app!.step + 1 < app.steps.length && url) {

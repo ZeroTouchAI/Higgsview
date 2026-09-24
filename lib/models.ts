@@ -78,7 +78,7 @@ function genjutsu(kind: string, name: string, desc: string, instruction: string)
   return {
     id: `genjutsu-${kind}`, name, badge: kind === "swap" ? "NEW" : "TOP", mode: "swap", tier: "premium",
     usdPerSec: { "480p": 0.085, "720p": 0.19 }, billsInputVideo: true, // Kie reference-video pricing
-    desc: `${desc} Input video: 2-30s, 480p or 720p.`,
+    desc: `${desc} Seedance blocks real people's faces: for real people use Character Swap.`,
     durations: [-1], aspects: ["adaptive", "16:9", "9:16", "1:1"], resolutions: ["480p", "720p"], audio: true,
     frames: "none", refs: 9, needs: ["video"], videoMaxPixels: 927408, videoMaxSecs: 30, promptOptional: true,
     labels: { video: "Reference video" },
