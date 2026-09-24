@@ -93,6 +93,21 @@ Done and verified locally:
 - ⧉ Copy (prompt to clipboard) and ↻ Regenerate. Regenerate re-posts the same `{appId, input}` or `{modelId, params}`: studio items now store `params` on the history item; older items without it don't show the button.
 - ↓ Download (pink) fetches the file as a blob and saves it. Kie's file hosts send `Access-Control-Allow-Origin: *`; falls back to opening the URL. ▲ Google Drive (blue) is the Make export.
 
+## Result card actions (2026-09-24)
+- ⧉ Copy (prompt to clipboard) and ↻ Regenerate. Regenerate re-posts the same `{appId, input}` or `{modelId, params}`: studio items now store `params` on the history item; older items without it don't show the button.
+- ↓ Download (pink) fetches the file as a blob and saves it. Kie's file hosts send `Access-Control-Allow-Origin: *`; falls back to opening the URL. ▲ Google Drive is solid dark blue `#1f3f99` (owner preference: not the two-tone gradient).
+
+## Account menu, profile, password (2026-09-24)
+- Top-right: Spending, Upcoming, divider, **credits pill** (Kie balance in credits; 1 credit = $0.005), **account circle** (initials from the profile).
+- `components/AccountMenu.tsx` dropdown (modeled on Higgsfield's):
+  - Name and a credits card: 28-dot meter vs the highest balance seen in this browser (`localStorage hv_peak_credits`), ≈$ value, "lasts ~N days at your 7-day pace", and a Top up button (kie.ai/billing)
+  - View profile, Manage account (kie.ai/billing)
+  - Kie links: API Keys `/api-key`, Billing `/billing`, Usage `/usage`, Logs `/logs`, Pricing `/pricing`, Model Market `/market`
+  - Sign Out
+- `/profile`: first/last name, username, email (`profile.json` in Blob via `/api/account`), plus Change password (`/api/account/password`).
+- **Password:** `lib/auth.ts`. The active hash is `auth.json` in Blob if set, else `sha256(APP_PASSWORD)`. `proxy.ts` compares the `hv_auth` cookie to it (60s cache per instance). Changing the password logs out other browsers.
+- ⚠ Local dev shares the Blob store: changing the password locally changes the live password.
+
 ## Upcoming tracker and app thumbnails (added 2026-09-24)
 - **Upcoming** (`/upcoming`, `lib/upcoming.ts`, `app/api/upcoming`): reads Higgsfield's public sitemaps (`/apps/sitemap.xml`, `/effects/sitemap.xml`, `/sitemap-marketing.xml`) and stores `upcoming.json` in Blob. The Nav calls `GET /api/upcoming` on every app open; the server re-scans only if the last check is over 24h old ("Check now" forces it).
   - Statuses: `new` (appeared after the first scan, shown as a count badge in the Nav), `todo`, `built`, `ignored`. The user can re-mark any item.

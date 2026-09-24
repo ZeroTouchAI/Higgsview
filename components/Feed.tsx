@@ -73,9 +73,9 @@ function HowItWorks({ kind }: { kind: "video" | "image" | "audio" }) {
   );
 }
 
-// Higgsfield's pink / blue badge gradients, reused for the two main actions.
+// Download = Higgsfield's pink gradient; Google Drive = solid dark blue.
 const PINK = "text-white [background-image:radial-gradient(39.71%_136.54%_at_51.64%_117.31%,#F920D1_0%,#ED1572_100%)]";
-const BLUE = "text-white [background-image:linear-gradient(90deg,rgb(50,89,180)_0%,rgb(60,140,255)_50%,rgb(0,200,210)_75%,rgb(120,201,230)_100%)]";
+const BLUE = "bg-[#1f3f99] text-white"; // solid dark blue (owner preference)
 const ACTION = "rounded-md px-2 py-1 font-semibold transition hover:brightness-110 disabled:opacity-60";
 
 function CopyButton({ text }: { text: string }) {

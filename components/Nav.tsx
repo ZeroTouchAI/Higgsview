@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import Badge from "@/components/Badge";
+import AccountMenu from "@/components/AccountMenu";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { MODELS } from "@/lib/models";
@@ -84,7 +85,8 @@ function NavInner() {
   const sp = useSearchParams();
   const router = useRouter();
   const [open, setOpen] = useState<string>();
-  const [bal, setBal] = useState<string>();
+  const [credits, setCredits] = useState<number | null>(); // Kie balance in credits (null = no key)
+  const [perDay, setPerDay] = useState<number>(); // average $/day over the last 7 days
   const [fresh, setFresh] = useState(0); // new Higgsfield features waiting in Upcoming
   const [month, setMonth] = useState<number>(); // this month's spend, shown in the Spending bubble
   // Opening Higgsview triggers the daily Higgsfield check (server re-scans if the last one is >24h old).
@@ -93,11 +95,15 @@ function NavInner() {
   }, []);
   useEffect(() => {
     const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    fetch("/api/history").then((r) => r.json()).then((items: { createdAt: number; usd?: number }[]) =>
-      setMonth(items.filter((i) => i.createdAt >= start).reduce((sum, i) => sum + (i.usd ?? 0), 0)), () => {});
+    const week = Date.now() - 7 * 864e5;
+    fetch("/api/history").then((r) => r.json()).then((items: { createdAt: number; usd?: number }[]) => {
+      const sum = (from: number) => items.filter((i) => i.createdAt >= from).reduce((s, i) => s + (i.usd ?? 0), 0);
+      setMonth(sum(start));
+      setPerDay(sum(week) / 7 || undefined);
+    }, () => {});
   }, [path]);
   useEffect(() => {
-    fetch("/api/credits").then((r) => r.json()).then((d) => setBal(d.usd != null ? `$${d.usd.toFixed(2)}` : "No key"), () => {});
+    fetch("/api/credits").then((r) => r.json()).then((d) => setCredits(typeof d.credits === "number" ? d.credits : null), () => {});
   }, [path]);
   // Close the menu after navigating (URL change) or on Escape.
   const url = path + "?" + sp.toString();
@@ -150,12 +156,12 @@ function NavInner() {
             {fresh > 0 && <span className="rounded-full bg-lime px-1.5 text-[10px] font-black text-black">{fresh}</span>}
           </Link>
           <span aria-hidden className="mx-1 h-3 w-px bg-white/15" />
-          <button onClick={() => fetch("/api/logout", { method: "POST" }).then(() => { router.replace("/login"); router.refresh(); })}
-            className={`${pill} bg-lime/[.08] text-lime hover:bg-lime/15`}>Log out</button>
-          <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" title="Kie.ai balance — click to top up"
-            className={`${pill} bg-lime font-semibold text-[#1a1a1a] hover:brightness-110`}>
-            <span className="size-2 rounded-full bg-[#1a1a1a]" /> {bal ?? "…"}
+          <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" title={credits ? `Kie.ai balance ≈ $${(credits * 0.005).toFixed(2)} — click to top up` : "Kie.ai balance"}
+            className={`${pill} bg-lime/[.08] font-semibold text-lime hover:bg-lime/15`}>
+            <span className="size-2 rounded-full bg-lime" /> {credits === undefined ? "…" : credits === null ? "No key" : `${Math.floor(credits).toLocaleString()} credits`}
           </a>
+          <AccountMenu credits={credits ?? undefined} usdPerDay={perDay}
+            onSignOut={() => fetch("/api/logout", { method: "POST" }).then(() => { router.replace("/login"); router.refresh(); })} />
         </div>
       </div>
 
