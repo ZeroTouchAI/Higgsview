@@ -25,7 +25,11 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
             )}
           </div>
           <figcaption className="flex flex-col gap-2 p-3 text-xs">
-            <p className="line-clamp-2 text-fg/80">{i.prompt}</p>
+            <div className="flex items-start gap-2">
+              <p className="line-clamp-2 flex-1 text-fg/80" title={i.prompt}>{i.prompt}</p>
+              <CopyButton text={i.prompt} />
+              {(i.params || i.app) && <RegenButton item={i} />}
+            </div>
             <div className="flex flex-wrap items-center gap-2 text-muted">
               <span className="rounded bg-chip px-1.5 py-0.5">{i.modelName}</span>
               {i.usd != null && <span className="rounded bg-chip px-1.5 py-0.5">${i.usd.toFixed(2)}</span>}
@@ -34,7 +38,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
                 {onReuse && <button onClick={() => onReuse(i)} className="rounded bg-chip px-2 py-1 hover:text-fg">Reuse</button>}
                 {onContinue && i.lastFrame && <button onClick={() => onContinue(i)} title="Start a new clip from this clip's last frame" className="rounded bg-chip px-2 py-1 hover:text-fg">Continue →</button>}
                 {onExtend && i.state === "success" && i.modelId.startsWith("grok") && <button onClick={() => onExtend(i)} title="Add 6-10s to this video" className="rounded bg-chip px-2 py-1 hover:text-fg">Extend +</button>}
-                {i.url && <a href={i.url} target="_blank" rel="noreferrer" download className="rounded bg-chip px-2 py-1 hover:text-fg">Download</a>}
+                {i.url && <DownloadButton item={i} />}
                 {i.url && <DriveButton item={i} />}
                 <button onClick={() => confirm("Delete this from history?") && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>
               </span>
@@ -69,6 +73,60 @@ function HowItWorks({ kind }: { kind: "video" | "image" | "audio" }) {
   );
 }
 
+// Higgsfield's pink / blue badge gradients, reused for the two main actions.
+const PINK = "text-white [background-image:radial-gradient(39.71%_136.54%_at_51.64%_117.31%,#F920D1_0%,#ED1572_100%)]";
+const BLUE = "text-white [background-image:linear-gradient(90deg,rgb(50,89,180)_0%,rgb(60,140,255)_50%,rgb(0,200,210)_75%,rgb(120,201,230)_100%)]";
+const ACTION = "rounded-md px-2 py-1 font-semibold transition hover:brightness-110 disabled:opacity-60";
+
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button title="Copy prompt" aria-label="Copy prompt" className="shrink-0 rounded bg-chip px-2 py-1 hover:text-fg"
+      onClick={async () => { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500); }}>
+      {done ? "✓ Copied" : "⧉ Copy"}
+    </button>
+  );
+}
+
+// Runs the exact same generation again (same model/app, settings and inputs).
+function RegenButton({ item }: { item: Item }) {
+  const [busy, setBusy] = useState(false);
+  async function regen() {
+    if ((item.usd ?? 0) > 2 && !confirm(`This cost $${item.usd!.toFixed(2)} last time. Run it again?`)) return;
+    setBusy(true);
+    const body = item.app ? { appId: item.app.id, input: item.app.input } : { modelId: item.modelId, params: item.params };
+    const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify(body) }).then((r) => r.json()).catch((e) => ({ error: String(e) }));
+    setBusy(false);
+    if (d.error) alert(d.error);
+    else await refreshHistory();
+  }
+  return (
+    <button onClick={regen} disabled={busy} title="Generate again with the same prompt and settings" className="shrink-0 rounded bg-chip px-2 py-1 hover:text-fg disabled:opacity-50">
+      {busy ? "…" : "↻ Regenerate"}
+    </button>
+  );
+}
+
+// Saves the file itself (Kie's file host allows cross-origin fetches); falls back to opening it.
+function DownloadButton({ item }: { item: Item }) {
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    try {
+      const blob = await fetch(item.url!).then((r) => { if (!r.ok) throw new Error(); return r.blob(); });
+      const ext = item.url!.match(/\.(\w{3,4})(\?|$)/)?.[1] ?? (item.kind === "video" ? "mp4" : item.kind === "audio" ? "mp3" : "jpg");
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `higgsview-${item.modelId}-${item.id.slice(0, 6)}.${ext}` });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    } catch {
+      window.open(item.url, "_blank");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <button onClick={save} disabled={busy} className={`${ACTION} ${PINK}`}>{busy ? "Saving…" : "↓ Download"}</button>;
+}
+
 // Free providers render on request and can time out the first load; remount to retry.
 function RetryImg({ src, alt }: { src: string; alt: string }) {
   const [tries, setTries] = useState(0);
@@ -79,7 +137,7 @@ function RetryImg({ src, alt }: { src: string; alt: string }) {
 function DriveButton({ item }: { item: Item }) {
   const [state, setState] = useState<"idle" | "busy" | "error">("idle");
   if (item.driveLink)
-    return <a href={item.driveLink} target="_blank" rel="noreferrer" className="rounded bg-lime/15 px-2 py-1 text-lime">✓ In Drive</a>;
+    return <a href={item.driveLink} target="_blank" rel="noreferrer" className={`${ACTION} ${BLUE}`}>✓ In Drive</a>;
   async function exportIt() {
     setState("busy");
     const d = await fetch("/api/export", { method: "POST", body: JSON.stringify({ id: item.id }) }).then((r) => r.json()).catch(() => ({}));
@@ -88,8 +146,8 @@ function DriveButton({ item }: { item: Item }) {
   }
   return (
     <button onClick={exportIt} disabled={state === "busy"} title="Save to Google Drive → My Drive/Higgsview"
-      className={`rounded bg-chip px-2 py-1 hover:text-fg ${state === "error" ? "text-red-300" : ""}`}>
-      {state === "busy" ? "Saving…" : state === "error" ? "Retry Drive" : "Export to Drive"}
+      className={`${ACTION} ${state === "error" ? "bg-red-500/20 text-red-300" : BLUE}`}>
+      {state === "busy" ? "Saving…" : state === "error" ? "Retry Drive" : "▲ Google Drive"}
     </button>
   );
 }

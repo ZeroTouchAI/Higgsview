@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { AppInput } from "@/lib/apps";
+import type { Params } from "@/lib/models";
 
 // History lives server-side (Vercel Blob, see lib/store.ts) so every device sees the same list.
 export type Item = {
@@ -17,6 +18,7 @@ export type Item = {
   usd?: number;
   driveLink?: string; // set after "Export to Drive"
   app?: { id: string; input: AppInput; step: number }; // multi-step App progress
+  params?: Params; // exact settings of a studio generation (used by "Regenerate")
   hidden?: boolean; // "deleted" from History but kept so Spending stays accurate
   createdAt: number;
 };

@@ -89,6 +89,10 @@ Done and verified locally:
   - Upcoming with the Enterprise sparkle icon and the NEW count
   - A 1px divider, then Log out (`POST /api/logout` clears the `hv_auth` cookie), then the lime Kie balance pill (links to kie.ai/billing)
 
+## Result card actions (2026-09-24)
+- ⧉ Copy (prompt to clipboard) and ↻ Regenerate. Regenerate re-posts the same `{appId, input}` or `{modelId, params}`: studio items now store `params` on the history item; older items without it don't show the button.
+- ↓ Download (pink) fetches the file as a blob and saves it. Kie's file hosts send `Access-Control-Allow-Origin: *`; falls back to opening the URL. ▲ Google Drive (blue) is the Make export.
+
 ## Upcoming tracker and app thumbnails (added 2026-09-24)
 - **Upcoming** (`/upcoming`, `lib/upcoming.ts`, `app/api/upcoming`): reads Higgsfield's public sitemaps (`/apps/sitemap.xml`, `/effects/sitemap.xml`, `/sitemap-marketing.xml`) and stores `upcoming.json` in Blob. The Nav calls `GET /api/upcoming` on every app open; the server re-scans only if the last check is over 24h old ("Check now" forces it).
   - Statuses: `new` (appeared after the first scan, shown as a count badge in the Nav), `todo`, `built`, `ignored`. The user can re-mark any item.
