@@ -105,7 +105,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" }) {
         {(model.frames !== "none" || model.needs?.includes("video")) && (
           <div className="grid grid-cols-2 gap-2">
             {model.needs?.includes("video") && (
-              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels}
+              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs}
                 onChange={(video, videoSecs) => setMedia((m) => ({ ...m, video, videoSecs }))} />
             )}
             {model.frames !== "none" && (

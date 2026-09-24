@@ -63,6 +63,7 @@ Done and verified locally:
 - **Live-tested 2026-09-24:** Color Grading ($0.06), Plushies 2-step Draft ($0.245), Gemini voice ($0.004), Talking Avatar (voice → Kling Avatar).
 - **Voices:** ElevenLabs (turbo 2.5 and multilingual v2) returned "Internal Error" on Kie every time (not charged), so **Gemini 3.1 Flash TTS is the default** (`gemini:<Name>` in `VOICES`). The ElevenLabs voices are still listed; retry them later.
 - Uploads convert non-JPG/PNG images to JPG in the browser (`toJpeg`), because Kling Avatar rejects WebP.
+- **Auto-trim:** models declare `videoMaxSecs` (Genjutsu, Kling Motion, Wan Animate = 30; Wan Edit = 10). The upload tile trims to max−0.5s in the browser and labels the result "Trimmed to first 30s". It uses exact `v.duration` (no rounding). The stop check runs on a timer and frames are also drawn from the timer when the tab is hidden, because rVFC pauses in hidden tabs. Tested with a 32s clip: result 29.6s at 1280×720.
 - Layout fix: workspace and app pages use `lg:h-[calc(100dvh-3.5rem)]` without `flex-1` (flex-basis was overriding the height, so a long history stretched the panel). The Generate button is `sticky bottom-0` with an "Add: …" hint listing missing inputs. Genjutsu prompt is optional.
 - ponytail: two browser tabs polling at the same moment could start a chained step twice (single user, rare). Add a lock if it happens.
 

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { use, useState } from "react";
 import { appById, appCost, type AppInput, type Tier } from "@/lib/apps";
+import { byId } from "@/lib/models";
 import { refreshHistory, useHistory } from "@/lib/history";
 import { Chip, Upload } from "@/components/Controls";
 import Feed from "@/components/Feed";
@@ -20,6 +21,8 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
   const set = (patch: Partial<AppInput>) => setInput((i) => ({ ...i, ...patch }));
   const hasVideoStep = app.steps.some((s) => s(input, "x").modelId.startsWith("seedance"));
   const choice = input.choice ?? app.choice?.options[0];
+  // The model that receives the uploaded video decides its size/length limits (auto-fixed in the browser).
+  const videoModel = app.steps.map((s) => byId(s(input, "x").modelId)).find((m) => m?.needs?.includes("video"));
   const cost = appCost(app, { ...input, choice });
   const ready = app.inputs.every(([k]) => input[k]) && (!app.text || app.text.optional || input.text?.trim());
 
@@ -49,7 +52,8 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
           <div className="grid grid-cols-2 gap-2">
             {app.inputs.map(([k, label]) => (
               <Upload key={k} label={label} accept={k === "video" ? "video/*" : k === "audioUrl" ? "audio/*" : "image/*"}
-                value={input[k]} onChange={(url) => set({ [k]: url })} />
+                value={input[k]} onChange={(url) => set({ [k]: url })}
+                maxPixels={k === "video" ? videoModel?.videoMaxPixels : undefined} maxSecs={k === "video" ? videoModel?.videoMaxSecs : undefined} />
             ))}
           </div>
         )}

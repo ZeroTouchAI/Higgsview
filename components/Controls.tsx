@@ -2,28 +2,35 @@
 import { useRef, useState } from "react";
 
 // Uploads straight from the browser to our Blob store via a presigned URL (any size), then returns a URL Kie can read.
-export function Upload({ label, accept, value, onChange, optional, maxPixels, compact }: {
+export function Upload({ label, accept, value, onChange, optional, maxPixels, maxSecs, compact }: {
   label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number) => void;
-  optional?: boolean; maxPixels?: number; compact?: boolean;
+  optional?: boolean; maxPixels?: number; maxSecs?: number; compact?: boolean;
 }) {
   const [status, setStatus] = useState(""); // non-empty while converting/uploading
   const [err, setErr] = useState("");
+  const [note, setNote] = useState(""); // e.g. "Trimmed to 30s"
   const input = useRef<HTMLInputElement>(null);
   async function pick(f?: File) {
     if (!f) return;
-    setErr("");
+    setErr(""); setNote("");
     let seconds: number | undefined;
     setStatus("Reading…");
     try {
       if (f.type.startsWith("video/")) {
         const meta = await videoMeta(f);
         seconds = meta?.seconds;
-        // Seedance only takes ~480p–720p (409,600–927,408 px) and ≤30s: shrink/trim it here instead of making you re-export.
-        if (maxPixels && meta && (meta.w * meta.h > maxPixels || meta.w * meta.h < 409600 || meta.seconds > 30)) {
-          const k = Math.sqrt((meta.w * meta.h > maxPixels || meta.w * meta.h < 409600 ? 921600 : meta.w * meta.h) / (meta.w * meta.h));
-          const even = (n: number) => Math.round((n * k) / 2) * 2;
-          f = await resizeVideo(f, even(meta.w), even(meta.h), 30, (p) => setStatus(`Converting to ${even(meta.w)}×${even(meta.h)}… ${p}%`));
-          seconds = Math.min(meta.seconds, 30);
+        // Fix the video here instead of making you re-export: shrink to ~720p for pixel-limited models
+        // (Seedance: 409,600–927,408 px) and cut anything past the model's max length.
+        const px = meta ? meta.w * meta.h : 0;
+        const badPx = !!maxPixels && !!meta && (px > maxPixels || px < 409600);
+        const tooLong = !!maxSecs && !!meta && meta.seconds > maxSecs;
+        if (meta && (badPx || tooLong)) {
+          const k = badPx ? Math.sqrt(921600 / px) : Math.min(1, 1920 / Math.max(meta.w, meta.h));
+          const w = Math.round((meta.w * k) / 2) * 2, h = Math.round((meta.h * k) / 2) * 2;
+          const secs = Math.min(meta.seconds, maxSecs ? maxSecs - 0.5 : Infinity); // margin: the stop timer can run a little late
+          f = await resizeVideo(f, w, h, secs, (p) => setStatus(`${tooLong ? `Trimming to ${maxSecs}s` : `Converting to ${w}×${h}`}… ${p}%`));
+          seconds = secs;
+          setNote([tooLong && `Trimmed to first ${maxSecs}s`, badPx && `resized to ${w}×${h}`].filter(Boolean).join(", "));
         }
       }
       // Some models (e.g. Kling Avatar) only take JPG/PNG: convert WebP/AVIF/GIF etc. to JPG first.
@@ -48,6 +55,7 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, co
           : <><span className="text-lg">＋</span><span className="font-semibold">{status || label}</span>
             {!compact && <span className={err ? "text-red-300" : "text-muted"}>{err || (optional ? "Optional" : "Required")}</span>}</>}
       </button>
+      {value && note && <span className="absolute inset-x-1 bottom-1 rounded bg-black/75 px-1 py-0.5 text-[10px] text-lime">{note}</span>}
       {value && <button onClick={() => onChange(undefined)} aria-label={`Remove ${label}`} className="absolute top-1 right-1 rounded-md bg-black/70 px-1.5">✕</button>}
       <input ref={input} type="file" accept={accept} hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
@@ -84,17 +92,21 @@ async function resizeVideo(f: File, w: number, h: number, maxSecs: number, progr
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const done = new Promise((r) => (rec.onstop = r));
   const end = Math.min(v.duration, maxSecs);
-  const draw = () => {
-    ctx.drawImage(v, 0, 0, w, h);
+  const finish = () => { if (rec.state === "recording") { v.pause(); rec.stop(); } };
+  // Frames are drawn on every decoded video frame; the stop check runs on a timer too, because
+  // frame callbacks pause when the tab is hidden and the clip would run past the limit.
+  const draw = () => { ctx.drawImage(v, 0, 0, w, h); if (rec.state === "recording") v.requestVideoFrameCallback(draw); };
+  const tick = setInterval(() => {
+    if (document.hidden) ctx.drawImage(v, 0, 0, w, h); // keep frames coming if you switch tabs mid-conversion
     progress(Math.min(99, Math.round((v.currentTime / end) * 100)));
-    if (v.currentTime >= end || v.ended) { if (rec.state === "recording") { v.pause(); rec.stop(); } }
-    else v.requestVideoFrameCallback(draw);
-  };
-  v.onended = () => rec.state === "recording" && rec.stop();
+    if (v.currentTime >= end) finish();
+  }, 50);
+  v.onended = finish;
   rec.start(1000);
   await v.play();
   v.requestVideoFrameCallback(draw);
   await done;
+  clearInterval(tick);
   audio.close();
   URL.revokeObjectURL(v.src);
   return new File(chunks, f.name.replace(/\.\w+$/, "") + "-720p.mp4", { type: "video/mp4" });
@@ -104,7 +116,7 @@ function videoMeta(f: File): Promise<{ w: number; h: number; seconds: number } |
   return new Promise((resolve) => {
     const v = document.createElement("video");
     v.preload = "metadata";
-    v.onloadedmetadata = () => { resolve({ w: v.videoWidth, h: v.videoHeight, seconds: Math.round(v.duration) }); URL.revokeObjectURL(v.src); };
+    v.onloadedmetadata = () => { resolve({ w: v.videoWidth, h: v.videoHeight, seconds: v.duration }); URL.revokeObjectURL(v.src); };
     v.onerror = () => resolve(undefined);
     v.src = URL.createObjectURL(f);
   });

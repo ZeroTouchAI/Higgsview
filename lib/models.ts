@@ -38,6 +38,7 @@ export type Model = {
   output?: "image" | "audio"; // model whose result isn't a video
   refs?: number; // max extra reference images
   videoMaxPixels?: number; // input video must be at most this many pixels (w×h)
+  videoMaxSecs?: number; // longer input videos are trimmed in the browser before upload
   // Estimate shown on the Generate button. Budget models measured 2026-09-24 at their cheapest settings
   // (480p/720p, no audio); higher quality or audio costs more. Real cost comes back from Kie per item.
   usdPerSec?: number;
@@ -77,7 +78,7 @@ function genjutsu(kind: string, name: string, desc: string, instruction: string)
     id: `genjutsu-${kind}`, name, badge: kind === "swap" ? "NEW" : "TOP", mode: "swap", tier: "premium", usdPerSec: 0.12,
     desc: `${desc} Input video: 2-30s, 480p or 720p.`,
     durations: [-1], aspects: ["adaptive", "16:9", "9:16", "1:1"], resolutions: ["480p", "720p"], audio: true,
-    frames: "none", refs: 9, needs: ["video"], videoMaxPixels: 927408, promptOptional: true,
+    frames: "none", refs: 9, needs: ["video"], videoMaxPixels: 927408, videoMaxSecs: 30, promptOptional: true,
     labels: { video: "Reference video" },
     build: (p) => ({
       model: "bytedance/seedance-2-5",
@@ -197,7 +198,7 @@ export const MODELS: Model[] = [
     id: "wan-2-7-edit", name: "Wan 2.7 Edit", badge: "NEW", mode: "edit", tier: "budget", usdPerSec: 0.08,
     desc: "Upload footage and describe the change — restyle, swap objects, relight.",
     durations: [5], aspects: ["16:9", "9:16", "1:1", "4:3", "3:4"], resolutions: ["720p", "1080p"],
-    frames: "start", needs: ["video"], labels: { start: "Reference image", video: "Input video" },
+    frames: "start", needs: ["video"], videoMaxSecs: 10, labels: { start: "Reference image", video: "Input video" },
     build: (p) => ({
       model: "wan/2-7-videoedit",
       input: { prompt: p.prompt, video_url: p.video, reference_image: p.start, resolution: p.resolution, aspect_ratio: p.aspect },
@@ -209,7 +210,7 @@ export const MODELS: Model[] = [
     id: "kling-3-motion", name: "Kling 3.0 Motion Control", badge: "TOP", mode: "motion", tier: "standard", usdPerSec: 0.09,
     desc: "Upload a reference video to drive the exact pace and gestures of your character image.",
     durations: [5], aspects: ["auto"], resolutions: ["std", "pro"],
-    frames: "start", needs: ["start", "video"], promptOptional: true,
+    frames: "start", needs: ["start", "video"], videoMaxSecs: 30, promptOptional: true,
     labels: { start: "Character image", video: "Motion video" },
     build: (p) => ({
       model: "kling-3.0/motion-control",
@@ -221,7 +222,7 @@ export const MODELS: Model[] = [
     id: "wan-animate-move", name: "Wan Animate Move", mode: "motion", tier: "budget", usdFlat: 0.3,
     desc: "Your character image copies the moves of the reference video (dances, gestures). Cost depends on video length.",
     durations: [], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
-    frames: "start", needs: ["start", "video"], promptOptional: true,
+    frames: "start", needs: ["start", "video"], videoMaxSecs: 30, promptOptional: true,
     labels: { start: "Character image", video: "Motion video" },
     build: (p) => ({ model: "wan/2-2-animate-move", input: { video_url: p.video, image_url: p.start, resolution: p.resolution } }),
   },
@@ -238,7 +239,7 @@ export const MODELS: Model[] = [
     id: "wan-animate-replace", name: "Character Swap (full body)", badge: "TOP", mode: "swap", tier: "budget", usdFlat: 0.3,
     desc: "Replace the person in any video with your character, keeping their exact motion, lighting and scene. Cost depends on video length.",
     durations: [], aspects: ["auto"], resolutions: ["480p", "580p", "720p"],
-    frames: "start", needs: ["start", "video"], promptOptional: true,
+    frames: "start", needs: ["start", "video"], videoMaxSecs: 30, promptOptional: true,
     labels: { video: "Original video", start: "New character" },
     build: (p) => ({ model: "wan/2-2-animate-replace", input: { video_url: p.video, image_url: p.start, resolution: p.resolution } }),
   },
