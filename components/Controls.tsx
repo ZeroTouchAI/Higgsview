@@ -26,6 +26,8 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, co
           seconds = Math.min(meta.seconds, 30);
         }
       }
+      // Some models (e.g. Kling Avatar) only take JPG/PNG: convert WebP/AVIF/GIF etc. to JPG first.
+      if (f.type.startsWith("image/") && !/^image\/(jpeg|png)$/.test(f.type)) f = await toJpeg(f);
       setStatus("Uploading…");
       const d = await fetch("/api/upload", { method: "POST", body: JSON.stringify({ name: f.name, type: f.type, size: f.size }) }).then((r) => r.json());
       if (d.error) throw new Error(d.error);
@@ -50,6 +52,14 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, co
       <input ref={input} type="file" accept={accept} hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
   );
+}
+
+async function toJpeg(f: File): Promise<File> {
+  const bmp = await createImageBitmap(f);
+  const c = Object.assign(document.createElement("canvas"), { width: bmp.width, height: bmp.height });
+  c.getContext("2d")!.drawImage(bmp, 0, 0);
+  const blob = await new Promise<Blob>((r, x) => c.toBlob((b) => (b ? r(b) : x(new Error("Image conversion failed"))), "image/jpeg", 0.92));
+  return new File([blob], f.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
 }
 
 // Re-encode a video in the browser (canvas + MediaRecorder, native in Chrome/Edge): resize to w×h, cut at maxSecs, keep audio.

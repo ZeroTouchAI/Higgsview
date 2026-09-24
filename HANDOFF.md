@@ -60,6 +60,9 @@ Done and verified locally:
 - An item's `app: {id, input, step}` is advanced by `GET /api/history`. Its cost is the running total across steps.
 - **Not built** (need an LLM or a real editor): Virality Predictor, Breakdown, Click-to-Ad (product URL → ad), Sticker Matchcut, Video Background Remover (no Kie model), AI Stylist preset wardrobe. ClipCut/Urban Cuts are single-generation approximations.
 - `npm run check` builds every app step with dummy inputs.
+- **Live-tested 2026-09-24:** Color Grading ($0.06), Plushies 2-step Draft ($0.245), Gemini voice ($0.004), Talking Avatar (voice → Kling Avatar).
+- **Voices:** ElevenLabs (turbo 2.5 and multilingual v2) returned "Internal Error" on Kie every time (not charged), so **Gemini 3.1 Flash TTS is the default** (`gemini:<Name>` in `VOICES`). The ElevenLabs voices are still listed; retry them later.
+- Uploads convert non-JPG/PNG images to JPG in the browser (`toJpeg`), because Kling Avatar rejects WebP.
 - ponytail: two browser tabs polling at the same moment could start a chained step twice (single user, rare). Add a lock if it happens.
 
 ## Google Drive export (done 2026-09-24)
