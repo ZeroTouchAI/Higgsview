@@ -91,10 +91,6 @@ Done and verified locally:
 
 ## Result card actions (2026-09-24)
 - ⧉ Copy (prompt to clipboard) and ↻ Regenerate. Regenerate re-posts the same `{appId, input}` or `{modelId, params}`: studio items now store `params` on the history item; older items without it don't show the button.
-- ↓ Download (pink) fetches the file as a blob and saves it. Kie's file hosts send `Access-Control-Allow-Origin: *`; falls back to opening the URL. ▲ Google Drive (blue) is the Make export.
-
-## Result card actions (2026-09-24)
-- ⧉ Copy (prompt to clipboard) and ↻ Regenerate. Regenerate re-posts the same `{appId, input}` or `{modelId, params}`: studio items now store `params` on the history item; older items without it don't show the button.
 - ↓ Download (pink) fetches the file as a blob and saves it. Kie's file hosts send `Access-Control-Allow-Origin: *`; falls back to opening the URL. ▲ Google Drive is solid dark blue `#1f3f99` (owner preference: not the two-tone gradient).
 
 ## Account menu, profile, password (2026-09-24)
