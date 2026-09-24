@@ -81,10 +81,6 @@ export default function AccountMenu({ credits, usdPerDay, onSignOut }: { credits
 
             <div className="mt-2 flex flex-col">
               <Link href="/profile" onClick={() => setOpen(false)} className={row}><Icon d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0" /> View profile</Link>
-              <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" className={row}>
-                <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.2-1.3L14.4 3h-4l-.4 2.4a7 7 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.2 1.3l.4 2.4h4l.4-2.4a7 7 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.1-.4.1-.9.1-1.3Z" />
-                Manage account <span className="ml-auto text-xs text-muted">Kie ↗</span>
-              </a>
               <p className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wide text-muted uppercase">Kie.ai</p>
               {KIE.map(([label, href, d]) => (
                 <a key={label} href={href} target="_blank" rel="noreferrer" className={row}><Icon d={d} /> {label} <span className="ml-auto text-xs text-muted">↗</span></a>

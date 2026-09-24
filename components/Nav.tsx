@@ -156,9 +156,9 @@ function NavInner() {
             {fresh > 0 && <span className="rounded-full bg-lime px-1.5 text-[10px] font-black text-black">{fresh}</span>}
           </Link>
           <span aria-hidden className="mx-1 h-3 w-px bg-white/15" />
-          <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" title={credits ? `Kie.ai balance ≈ $${(credits * 0.005).toFixed(2)} — click to top up` : "Kie.ai balance"}
+          <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" title={credits ? `Kie.ai balance: ${Math.floor(credits).toLocaleString()} credits — click to top up` : "Kie.ai balance"}
             className={`${pill} bg-lime/[.08] font-semibold text-lime hover:bg-lime/15`}>
-            <span className="size-2 rounded-full bg-lime" /> {credits === undefined ? "…" : credits === null ? "No key" : `${Math.floor(credits).toLocaleString()} credits`}
+            <span className="size-2 rounded-full bg-lime" /> {credits === undefined ? "…" : credits === null ? "No key" : `$${(credits * 0.005).toFixed(2)}`}
           </a>
           <AccountMenu credits={credits ?? undefined} usdPerDay={perDay}
             onSignOut={() => fetch("/api/logout", { method: "POST" }).then(() => { router.replace("/login"); router.refresh(); })} />

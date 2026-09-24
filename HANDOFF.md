@@ -94,10 +94,10 @@ Done and verified locally:
 - ↓ Download (pink) fetches the file as a blob and saves it. Kie's file hosts send `Access-Control-Allow-Origin: *`; falls back to opening the URL. ▲ Google Drive is solid dark blue `#1f3f99` (owner preference: not the two-tone gradient).
 
 ## Account menu, profile, password (2026-09-24)
-- Top-right: Spending, Upcoming, divider, **credits pill** (Kie balance in credits; 1 credit = $0.005), **account circle** (initials from the profile).
+- Top-right: Spending, Upcoming, divider, **balance pill in dollars** (credits × $0.005; the menu shows credits), **account circle** (initials from the profile).
 - `components/AccountMenu.tsx` dropdown (modeled on Higgsfield's):
   - Name and a credits card: 28-dot meter vs the highest balance seen in this browser (`localStorage hv_peak_credits`), ≈$ value, "lasts ~N days at your 7-day pace", and a Top up button (kie.ai/billing)
-  - View profile, Manage account (kie.ai/billing)
+  - View profile
   - Kie links: API Keys `/api-key`, Billing `/billing`, Usage `/usage`, Logs `/logs`, Pricing `/pricing`, Model Market `/market`
   - Sign Out
 - `/profile`: first/last name, username, email (`profile.json` in Blob via `/api/account`), plus Change password (`/api/account/password`).
