@@ -87,6 +87,7 @@ Done and verified locally:
   - Classification rules: `NOISE` (guides, community, MCP, pricing…), `ALIASES` (Higgsfield slug → our app id), `BUILT_PAGES`, `PRODUCTS` (real products worth building; other marketing/SEO pages start ignored).
   - First scan (baseline, 2026-09-24): to build = 12 apps, 67 effects, 31 features/products.
   - Easy next win: the 67 unbuilt effects are prompt-only. Each Higgsfield effect page has a description to base a prompt on.
+- **Homepage model cards** use `public/thumbs/model-<modelId>.jpg` (640px, 10 files, $0.31).
 - **Thumbnails**: `public/thumbs/<appId>.jpg` (480px JPEG, about 30 KB each, 106 files) shown on Apps cards, the effect picker and the app header. Generated once with FLUX.2 Pro (a few with Grok Image 2 / Nano Banana after Kie "Internal Error"s). Cost $2.63. The generation jobs are hidden in History and counted in Spending.
   - Prompts: `scripts/thumb-prompts.ts`. To add a thumb for a new app, generate an image and save it as `public/thumbs/<id>.jpg`; cards fall back to a gradient if the file is missing.
 

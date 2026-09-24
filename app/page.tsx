@@ -37,7 +37,9 @@ export default function Explore() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {video.map((m, i) => (
             <div key={m.id} className="flex flex-col gap-3 rounded-2xl bg-panel p-4">
-              <div className="aspect-video rounded-xl" style={{ background: `linear-gradient(135deg, hsl(${(i * 53) % 360} 40% 20%), #0e0e0e)` }} />
+              <div className="relative aspect-video overflow-hidden rounded-xl" style={{ background: `linear-gradient(135deg, hsl(${(i * 53) % 360} 40% 20%), #0e0e0e)` }}>
+                <img src={`/thumbs/model-${m.id}.jpg`} alt="" loading="lazy" className="size-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+              </div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold">{m.name}</h3>
                 {m.badge && <span className="rounded bg-lime px-1 text-[10px] font-black text-black italic">{m.badge}</span>}
