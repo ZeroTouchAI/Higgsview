@@ -7,7 +7,8 @@ const PATH = "history.json";
 export async function readHistory(): Promise<{ items: Item[]; etag?: string }> {
   const r = await get(PATH, { access: "private", useCache: false });
   if (!r || r.statusCode !== 200) return { items: [] };
-  return { items: JSON.parse(await new Response(r.stream).text()), etag: r.blob.etag };
+  // get() returns a weak ETag (W/"…"); conditional put() needs the strong form.
+  return { items: JSON.parse(await new Response(r.stream).text()), etag: r.blob.etag.replace(/^W\//, "") };
 }
 
 // Read-modify-write with an ETag check so concurrent requests can't drop each other's changes.

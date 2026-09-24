@@ -29,12 +29,15 @@ export async function POST(req: Request) {
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 502 });
   }
-  await mutate((all) => [{
+  // The Kie task already exists (and costs money): if saving fails, say so loudly with its id.
+  try { await mutate((all) => [{
     id: crypto.randomUUID(),
     kind: app?.out ?? m.output ?? (m.mode === "image" ? "image" : "video"),
     modelId: m.id, modelName: app?.name ?? m.name, prompt: app ? body.input?.text || app.name : params.prompt,
     taskId: run.taskId, url: run.url, state: run.url ? "success" : "pending", usd: run.url ? 0 : undefined, createdAt: Date.now(),
     ...(app && { app: { id: app.id, input: body.input!, step: 0 } }),
-  }, ...all]);
+  }, ...all]); } catch (e) {
+    return Response.json({ error: `Started (Kie task ${run.taskId}) but couldn't save it to History: ${(e as Error).message}` }, { status: 500 });
+  }
   return Response.json({ ok: true });
 }
