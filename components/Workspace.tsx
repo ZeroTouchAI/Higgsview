@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import Badge from "@/components/Badge";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MODELS, PRESETS, byId, defaultRes, estimateUsd, type Mode, type Model } from "@/lib/models";
 import { refreshHistory, useHistory, type Item } from "@/lib/history";
@@ -234,7 +235,7 @@ function ModelPicker({ models, value, onPick, onClose }: { models: Model[]; valu
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 text-sm font-semibold">
                       {m.name}
-                      {m.badge && <span className={`rounded px-1 text-[10px] font-black italic ${m.badge === "FREE" || m.badge === "CHEAP" ? "bg-lime text-black" : "bg-gradient-to-r from-sky-500 to-violet-500"}`}>{m.badge}</span>}
+                      <Badge label={m.badge} />
                     </span>
                     <span className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted">
                       <span className="rounded bg-line px-1">{m.resolutions.at(-1)}</span>

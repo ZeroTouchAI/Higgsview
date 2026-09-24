@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import Badge from "@/components/Badge";
 import { useState } from "react";
 import Link from "next/link";
 import { MODELS, estimateUsd } from "@/lib/models";
@@ -42,7 +43,7 @@ export default function Explore() {
               </div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold">{m.name}</h3>
-                {m.badge && <span className="rounded bg-lime px-1 text-[10px] font-black text-black italic">{m.badge}</span>}
+                <Badge label={m.badge} />
                 <span className="ml-auto text-xs text-muted">from ≈${estimateUsd(m, m.durations[0], m.resolutions[0]).toFixed(2)}/{m.durations[0]}s</span>
               </div>
               <p className="flex-1 text-sm text-muted">{m.desc}</p>

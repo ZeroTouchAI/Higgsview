@@ -81,6 +81,13 @@ Done and verified locally:
 - **Live-tested:** FLUX.2 Pro ($0.025), Suno music ($0.06, 2 tracks returned and we keep the first; the URL is in `resultJson.data[].audio_url`, picked up by the regex fallback in api/history), Effect "Floating Fall" Draft via Grok ($0.07). Debug any Kie job with `GET /api/raw?id=<taskId>` (login required).
 - Pages are keyed by their query string (menu clicks reset state). "Continue →" passes the last frame as `?start=`.
 
+## Header styling (2026-09-24)
+- `components/Badge.tsx`: Higgsfield's slanted badges. TOP = blue gradient; PRO/TRENDING/CHEAP = pink radial gradient; NEW/FREE = lime. Used in the Nav menus, model picker, Explore cards and Apps cards.
+- Top-right of the Nav, like Higgsfield's Pricing/Enterprise/Login area:
+  - Spending pill with the Pricing diamond icon and a pink bubble showing this month's spend
+  - Upcoming with the Enterprise sparkle icon and the NEW count
+  - A 1px divider, then Log out (`POST /api/logout` clears the `hv_auth` cookie), then the lime Kie balance pill (links to kie.ai/billing)
+
 ## Upcoming tracker and app thumbnails (added 2026-09-24)
 - **Upcoming** (`/upcoming`, `lib/upcoming.ts`, `app/api/upcoming`): reads Higgsfield's public sitemaps (`/apps/sitemap.xml`, `/effects/sitemap.xml`, `/sitemap-marketing.xml`) and stores `upcoming.json` in Blob. The Nav calls `GET /api/upcoming` on every app open; the server re-scans only if the last check is over 24h old ("Check now" forces it).
   - Statuses: `new` (appeared after the first scan, shown as a count badge in the Nav), `todo`, `built`, `ignored`. The user can re-mark any item.

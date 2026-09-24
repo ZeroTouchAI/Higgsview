@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Badge from "@/components/Badge";
 import { useState } from "react";
 import { APPS, CATEGORIES } from "@/lib/apps";
 
@@ -41,7 +42,7 @@ export default function AppsPage() {
                     <img src={`/thumbs/${a.id}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-cover transition-transform group-hover:scale-105"
                       onError={(e) => (e.currentTarget.style.display = "none")} />
                     {a.out === "video" && <span className="absolute right-2 bottom-2 rounded bg-black/70 px-1.5 text-[10px] font-bold">▶ VIDEO</span>}
-                    {a.badge && <span className="absolute top-2 left-2 z-10 rounded bg-lime px-1.5 text-[10px] font-black text-black">{a.badge}</span>}
+                    <Badge label={a.badge} className="absolute top-2 left-2 z-10" />
                   </div>
                   <div className="flex flex-1 flex-col gap-1 p-3">
                     <h3 className="font-bold">{a.name}</h3>

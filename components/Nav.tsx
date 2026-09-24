@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import Badge from "@/components/Badge";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { MODELS } from "@/lib/models";
 
@@ -63,9 +64,16 @@ const LINKS: [string, string, string?][] = [
   ["Genjutsu", "/video?tab=swap", "New"],
   ["Apps", "/apps"],
   ["History", "/history"],
-  ["Spending", "/spend"],
-  ["Upcoming", "/upcoming"],
 ];
+
+// Icons copied from higgsfield.ai's header (Pricing diamond, Enterprise sparkle).
+const Diamond = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-4"><path stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" d="M8.5 7.75L6.25 10L8.5 12.25M12.7071 20.0429L22.049 10.701C22.4371 10.3129 22.4398 9.68443 22.0551 9.29295L16.901 4.04903C16.713 3.85774 16.4561 3.75 16.1879 3.75H7.81214C7.54393 3.75 7.28696 3.85774 7.09895 4.04903L1.94493 9.29295C1.56016 9.68443 1.56288 10.3129 1.95102 10.701L11.2929 20.0429C11.6834 20.4334 12.3166 20.4334 12.7071 20.0429Z" /></svg>
+);
+const Sparkle = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden className="size-4"><path stroke="currentColor" strokeLinecap="square" strokeLinejoin="round" strokeWidth="1.5" d="M12 2.75C13 8 16 11 21.25 12 16 13 13 16 12 21.25 11 16 8 13 2.75 12 8 11 11 8 12 2.75Z" /></svg>
+);
+const pill = "relative flex h-9 shrink-0 items-center gap-1.5 rounded-[10px] px-3 text-sm font-medium whitespace-nowrap";
 
 export default function Nav() {
   return <Suspense><NavInner /></Suspense>;
@@ -74,13 +82,20 @@ export default function Nav() {
 function NavInner() {
   const path = usePathname();
   const sp = useSearchParams();
+  const router = useRouter();
   const [open, setOpen] = useState<string>();
   const [bal, setBal] = useState<string>();
   const [fresh, setFresh] = useState(0); // new Higgsfield features waiting in Upcoming
+  const [month, setMonth] = useState<number>(); // this month's spend, shown in the Spending bubble
   // Opening Higgsview triggers the daily Higgsfield check (server re-scans if the last one is >24h old).
   useEffect(() => {
     fetch("/api/upcoming").then((r) => r.json()).then((d) => setFresh(Object.values(d.items ?? {}).filter((t) => (t as { status: string }).status === "new").length), () => {});
   }, []);
+  useEffect(() => {
+    const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+    fetch("/api/history").then((r) => r.json()).then((items: { createdAt: number; usd?: number }[]) =>
+      setMonth(items.filter((i) => i.createdAt >= start).reduce((sum, i) => sum + (i.usd ?? 0), 0)), () => {});
+  }, [path]);
   useEffect(() => {
     fetch("/api/credits").then((r) => r.json()).then((d) => setBal(d.usd != null ? `$${d.usd.toFixed(2)}` : "No key"), () => {});
   }, [path]);
@@ -119,14 +134,30 @@ function NavInner() {
               className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-medium transition-colors hover:text-fg ${current(href) ? "text-lime" : "text-muted"}`}>
               {label}
               {tag && <span className="rounded-md bg-lime/15 px-1.5 text-[10px] font-bold text-lime">{tag}</span>}
-              {label === "Upcoming" && fresh > 0 && <span className="rounded-full bg-lime px-1.5 text-[10px] font-black text-black">{fresh}</span>}
             </Link>
           ))}
         </nav>
-        <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" title="Kie.ai balance — click to top up"
-          className="ml-auto flex items-center gap-1.5 rounded-lg bg-chip px-3 py-1.5 text-sm font-semibold whitespace-nowrap">
-          <span className="size-2 rounded-full bg-lime" /> {bal ?? "…"}
-        </a>
+        <div className="ml-auto flex shrink-0 items-center gap-2 pl-2">
+          <Link href="/spend" className={`${pill} bg-white/5 hover:bg-white/10 ${path === "/spend" ? "text-lime" : "text-fg"}`}>
+            <Diamond /> Spending
+            {month != null && (
+              <span className="absolute top-7 left-1/2 -translate-x-1/2 rounded-md px-1.5 py-0.5 text-[10px] leading-3 font-bold text-white uppercase [background-image:radial-gradient(39.71%_136.54%_at_51.64%_117.31%,#F920D1_0%,#ED1572_100%)]">
+                ${month.toFixed(2)} this mo
+              </span>
+            )}
+          </Link>
+          <Link href="/upcoming" className={`${pill} hidden md:flex ${path === "/upcoming" ? "text-lime" : "text-muted hover:text-fg"}`}>
+            <Sparkle /> Upcoming
+            {fresh > 0 && <span className="rounded-full bg-lime px-1.5 text-[10px] font-black text-black">{fresh}</span>}
+          </Link>
+          <span aria-hidden className="mx-1 h-3 w-px bg-white/15" />
+          <button onClick={() => fetch("/api/logout", { method: "POST" }).then(() => { router.replace("/login"); router.refresh(); })}
+            className={`${pill} bg-lime/[.08] text-lime hover:bg-lime/15`}>Log out</button>
+          <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" title="Kie.ai balance — click to top up"
+            className={`${pill} bg-lime font-semibold text-[#1a1a1a] hover:brightness-110`}>
+            <span className="size-2 rounded-full bg-[#1a1a1a]" /> {bal ?? "…"}
+          </a>
+        </div>
       </div>
 
       {open && (
@@ -143,7 +174,7 @@ function NavInner() {
                         <Link href={href} className="flex flex-col rounded-xl px-2 py-2 hover:bg-chip">
                           <span className="flex items-center gap-1.5 text-sm font-semibold">
                             {label}
-                            {badge && <span className="rounded bg-lime px-1 text-[9px] font-black text-black">{badge}</span>}
+                            <Badge label={badge} />
                           </span>
                           <span className="line-clamp-1 text-xs text-muted">{desc}</span>
                         </Link>
