@@ -34,10 +34,14 @@ export default function AppsPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {apps.map((a) => (
                 <Link key={a.id} href={`/apps/${a.id}`} className="group flex flex-col overflow-hidden rounded-2xl bg-panel hover:ring-2 hover:ring-lime">
-                  <div className="relative grid aspect-[4/3] place-items-center text-4xl"
+                  <div className="relative grid aspect-[4/3] place-items-center overflow-hidden text-4xl"
                     style={{ background: `linear-gradient(145deg, hsl(${[...a.id].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360} 45% 24%), #101010)` }}>
                     <span aria-hidden>{a.out === "video" ? "▶" : a.out === "audio" ? "♪" : "◼"}</span>
-                    {a.badge && <span className="absolute top-2 left-2 rounded bg-lime px-1.5 text-[10px] font-black text-black">{a.badge}</span>}
+                    {/* Preview image (public/thumbs/<id>.jpg); hides itself if missing so the colored card shows. */}
+                    <img src={`/thumbs/${a.id}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-cover transition-transform group-hover:scale-105"
+                      onError={(e) => (e.currentTarget.style.display = "none")} />
+                    {a.out === "video" && <span className="absolute right-2 bottom-2 rounded bg-black/70 px-1.5 text-[10px] font-bold">▶ VIDEO</span>}
+                    {a.badge && <span className="absolute top-2 left-2 z-10 rounded bg-lime px-1.5 text-[10px] font-black text-black">{a.badge}</span>}
                   </div>
                   <div className="flex flex-1 flex-col gap-1 p-3">
                     <h3 className="font-bold">{a.name}</h3>

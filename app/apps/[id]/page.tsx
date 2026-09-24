@@ -47,10 +47,12 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
     <div className="flex flex-col gap-3 p-3 lg:h-[calc(100dvh-3.5rem)] lg:flex-row">
       <aside className="flex w-full shrink-0 flex-col gap-3 overflow-y-auto rounded-2xl bg-panel p-3 lg:w-[360px]">
         <Link href="/apps" className="text-xs text-muted hover:text-fg">← All apps</Link>
-        <div className="relative flex h-28 shrink-0 flex-col justify-end rounded-xl bg-gradient-to-br from-[#3a2a12] via-[#1d1d1d] to-[#0f2a1f] p-3">
-          {app.cat === "effects" && <button onClick={() => setPicker(true)} className="absolute top-2 right-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs font-semibold backdrop-blur hover:bg-black/70">✎ Change</button>}
-          <div className="text-xl font-black tracking-tight text-lime uppercase">{app.name}</div>
-          <div className="text-xs text-fg/80">{app.desc}</div>
+        <div className="relative flex h-36 shrink-0 flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br from-[#3a2a12] via-[#1d1d1d] to-[#0f2a1f] p-3">
+          <img src={`/thumbs/${app.id}.jpg`} alt="" className="absolute inset-0 size-full object-cover opacity-80" onError={(e) => (e.currentTarget.style.display = "none")} />
+          <span className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+          {app.cat === "effects" && <button onClick={() => setPicker(true)} className="absolute top-2 right-2 z-10 rounded-lg bg-black/50 px-2.5 py-1 text-xs font-semibold backdrop-blur hover:bg-black/70">✎ Change</button>}
+          <div className="relative text-xl font-black tracking-tight text-lime uppercase">{app.name}</div>
+          <div className="relative text-xs text-fg/80">{app.desc}</div>
         </div>
 
         {(app.inputs.length > 0 || app.optional) && (
@@ -109,10 +111,12 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {APPS.filter((a) => a.cat === "effects").map((a, n) => (
-                <Link key={a.id} href={`/apps/${a.id}`} className={`flex aspect-[4/5] flex-col justify-end rounded-xl p-3 ring-lime hover:ring-2 ${a.id === id ? "ring-2" : ""}`}
+                <Link key={a.id} href={`/apps/${a.id}`} className={`relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-xl p-3 ring-lime hover:ring-2 ${a.id === id ? "ring-2" : ""}`}
                   style={{ background: `linear-gradient(160deg, hsl(${(n * 47) % 360} 50% 24%), #111)` }}>
-                  <span className="text-sm font-black uppercase">{a.name}</span>
-                  <span className="line-clamp-3 text-[11px] text-fg/60">{a.desc}</span>
+                  <img src={`/thumbs/${a.id}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+                  <span className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 to-transparent" />
+                  <span className="relative text-sm font-black uppercase">{a.name}</span>
+                  <span className="relative line-clamp-2 text-[11px] text-fg/70">{a.desc}</span>
                 </Link>
               ))}
             </div>

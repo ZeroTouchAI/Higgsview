@@ -81,6 +81,15 @@ Done and verified locally:
 - **Live-tested:** FLUX.2 Pro ($0.025), Suno music ($0.06, 2 tracks returned and we keep the first; the URL is in `resultJson.data[].audio_url`, picked up by the regex fallback in api/history), Effect "Floating Fall" Draft via Grok ($0.07). Debug any Kie job with `GET /api/raw?id=<taskId>` (login required).
 - Pages are keyed by their query string (menu clicks reset state). "Continue →" passes the last frame as `?start=`.
 
+## Upcoming tracker and app thumbnails (added 2026-09-24)
+- **Upcoming** (`/upcoming`, `lib/upcoming.ts`, `app/api/upcoming`): reads Higgsfield's public sitemaps (`/apps/sitemap.xml`, `/effects/sitemap.xml`, `/sitemap-marketing.xml`) and stores `upcoming.json` in Blob. The Nav calls `GET /api/upcoming` on every app open; the server re-scans only if the last check is over 24h old ("Check now" forces it).
+  - Statuses: `new` (appeared after the first scan, shown as a count badge in the Nav), `todo`, `built`, `ignored`. The user can re-mark any item.
+  - Classification rules: `NOISE` (guides, community, MCP, pricing…), `ALIASES` (Higgsfield slug → our app id), `BUILT_PAGES`, `PRODUCTS` (real products worth building; other marketing/SEO pages start ignored).
+  - First scan (baseline, 2026-09-24): to build = 12 apps, 67 effects, 31 features/products.
+  - Easy next win: the 67 unbuilt effects are prompt-only. Each Higgsfield effect page has a description to base a prompt on.
+- **Thumbnails**: `public/thumbs/<appId>.jpg` (480px JPEG, about 30 KB each, 106 files) shown on Apps cards, the effect picker and the app header. Generated once with FLUX.2 Pro (a few with Grok Image 2 / Nano Banana after Kie "Internal Error"s). Cost $2.63. The generation jobs are hidden in History and counted in Spending.
+  - Prompts: `scripts/thumb-prompts.ts`. To add a thumb for a new app, generate an image and save it as `public/thumbs/<id>.jpg`; cards fall back to a gradient if the file is missing.
+
 ## Google Drive export (done 2026-09-24)
 - Each finished card has an **Export to Drive** button. It calls `/api/export`, which posts `{url, name}` to Make.
 - Make scenario **"Higgsview - Export to Google Drive"** (id 6385753, team 638412, org 3365202 on us2.make.com): Custom webhook (hook 2851774) → HTTP Download a file → Google Drive Upload (connection 4175462, zerotouchaiautomation@gmail.com) → webhook response `{link, id}`

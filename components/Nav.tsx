@@ -64,6 +64,7 @@ const LINKS: [string, string, string?][] = [
   ["Apps", "/apps"],
   ["History", "/history"],
   ["Spending", "/spend"],
+  ["Upcoming", "/upcoming"],
 ];
 
 export default function Nav() {
@@ -75,6 +76,11 @@ function NavInner() {
   const sp = useSearchParams();
   const [open, setOpen] = useState<string>();
   const [bal, setBal] = useState<string>();
+  const [fresh, setFresh] = useState(0); // new Higgsfield features waiting in Upcoming
+  // Opening Higgsview triggers the daily Higgsfield check (server re-scans if the last one is >24h old).
+  useEffect(() => {
+    fetch("/api/upcoming").then((r) => r.json()).then((d) => setFresh(Object.values(d.items ?? {}).filter((t) => (t as { status: string }).status === "new").length), () => {});
+  }, []);
   useEffect(() => {
     fetch("/api/credits").then((r) => r.json()).then((d) => setBal(d.usd != null ? `$${d.usd.toFixed(2)}` : "No key"), () => {});
   }, [path]);
@@ -113,6 +119,7 @@ function NavInner() {
               className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-medium transition-colors hover:text-fg ${current(href) ? "text-lime" : "text-muted"}`}>
               {label}
               {tag && <span className="rounded-md bg-lime/15 px-1.5 text-[10px] font-bold text-lime">{tag}</span>}
+              {label === "Upcoming" && fresh > 0 && <span className="rounded-full bg-lime px-1.5 text-[10px] font-black text-black">{fresh}</span>}
             </Link>
           ))}
         </nav>
