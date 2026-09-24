@@ -54,13 +54,18 @@ const photo: [Slot, string][] = [["start", "Your photo"]];
 const product: [Slot, string][] = [["start", "Product photo"]];
 const grid = (what: string) => `Create a single image laid out as a clean 3x3 grid (contact sheet) of 9 panels: ${what}. Same subject, same identity, consistent lighting and style in every panel.`;
 
+// "gemini:<name>" → Gemini 3.1 Flash TTS (~$0.004/line, default); anything else is an ElevenLabs voice id.
 export const VOICES: Record<string, string> = {
-  "James (husky, bold)": "EkK5I93UQWFDigLMpZcX", "Mark (casual)": "1SM7GgM6IMuvQlz2BwM3", "Brian": "nPczCjzI2devNBz1zQrb",
-  "Liam": "TX3LPaxmHKxFdv7VOQHJ", "Callum": "N2lVS1w4EtoT3dr4eOWO", "Xavier (announcer)": "YOq2y2Up4RgXP2HyXjE5",
-  "Laura": "FGY2WhTYpPnrIDTdsKH5", "Bella": "hpp4J3VqNfWAUOO0d1Us", "Jessica": "g6xIsTj2HwM6VR4iXFCw",
-  "Emma": "pPdl9cQBQq4p6mRkZy2Z", "Hope": "uYXf8XasLslADfZ2MB4u", "Arabella (emotive)": "Z3R5wn05IrDiVCyEkUrK",
+  "Puck (upbeat)": "gemini:Puck", "Charon (informative)": "gemini:Charon", "Kore (firm)": "gemini:Kore", "Fenrir (excitable)": "gemini:Fenrir",
+  "Aoede (breezy)": "gemini:Aoede", "Zephyr (bright)": "gemini:Zephyr", "Achird (friendly)": "gemini:Achird", "Sulafat (warm)": "gemini:Sulafat",
+  "Orus (firm)": "gemini:Orus", "Leda (youthful)": "gemini:Leda",
+  "James · ElevenLabs": "EkK5I93UQWFDigLMpZcX", "Brian · ElevenLabs": "nPczCjzI2devNBz1zQrb", "Laura · ElevenLabs": "FGY2WhTYpPnrIDTdsKH5",
+  "Bella · ElevenLabs": "hpp4J3VqNfWAUOO0d1Us", "Xavier (announcer) · ElevenLabs": "YOq2y2Up4RgXP2HyXjE5",
 };
-const tts: Step = (i) => ({ modelId: "tts", params: { prompt: i.text, voice: VOICES[i.choice ?? ""] ?? Object.values(VOICES)[0] } });
+const tts: Step = (i) => {
+  const v = VOICES[i.choice ?? ""] ?? Object.values(VOICES)[0];
+  return v.startsWith("gemini:") ? { modelId: "gemini-tts", params: { prompt: i.text, voice: v.slice(7) } } : { modelId: "tts", params: { prompt: i.text, voice: v } };
+};
 
 export const APPS: App[] = [
   // ---------- Studios ----------
