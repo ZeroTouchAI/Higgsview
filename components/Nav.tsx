@@ -103,7 +103,6 @@ function NavInner() {
   const router = useRouter();
   const [open, setOpen] = useState<string>();
   const [credits, setCredits] = useState<number | null>(); // Kie balance in credits (null = no key)
-  const [perDay, setPerDay] = useState<number>(); // average $/day over the last 7 days
   const [fresh, setFresh] = useState(0); // new Higgsfield features waiting in Upcoming
   const [month, setMonth] = useState<number>(); // this month's spend, shown in the Spending bubble
   // Opening Higgsview triggers the daily Higgsfield check (server re-scans if the last one is >24h old).
@@ -112,11 +111,9 @@ function NavInner() {
   }, []);
   useEffect(() => {
     const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    const week = Date.now() - 7 * 864e5;
     fetch("/api/history").then((r) => r.json()).then((items: { createdAt: number; usd?: number }[]) => {
       const sum = (from: number) => items.filter((i) => i.createdAt >= from).reduce((s, i) => s + (i.usd ?? 0), 0);
       setMonth(sum(start));
-      setPerDay(sum(week) / 7 || undefined);
     }, () => {});
   }, [path]);
   useEffect(() => {
@@ -141,7 +138,7 @@ function NavInner() {
     <header className="sticky top-0 z-40 border-b border-line/60 bg-bg/90 backdrop-blur">
       <div className="flex h-14 items-center gap-1 px-4">
         <Link href="/" className="mr-1 shrink-0" aria-label="Higgsview home" title="Higgsview">
-          <span className="grid size-8 place-items-center rounded-lg bg-fg text-lg font-black text-black">H</span>
+          <span className="flex items-center gap-2"><span className="grid size-8 place-items-center rounded-lg bg-fg text-lg font-black text-black">H</span><span className="text-lg font-black tracking-tight">Higgsview</span></span>
         </Link>
         <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <Link href="/" className={`shrink-0 rounded-lg px-2 py-1.5 font-medium hover:text-fg ${path === "/" ? "text-lime" : "text-muted"}`}>Explore</Link>
@@ -177,7 +174,7 @@ function NavInner() {
             className={`${pill} bg-lime/[.08] font-semibold text-lime hover:bg-lime/15`}>
             <span className="size-2 rounded-full bg-lime" /> {credits === undefined ? "…" : credits === null ? "No key" : `$${(credits * 0.005).toFixed(2)}`}
           </a>
-          <AccountMenu credits={credits ?? undefined} usdPerDay={perDay}
+          <AccountMenu credits={credits ?? undefined}
             onSignOut={() => fetch("/api/logout", { method: "POST" }).then(() => { router.replace("/login"); router.refresh(); })} />
         </div>
       </div>

@@ -86,6 +86,7 @@ Done and verified locally:
 
 ## Header styling (2026-09-24)
 - `components/Badge.tsx`: Higgsfield's slanted badges. TOP = blue gradient; PRO/TRENDING/CHEAP = pink radial gradient; NEW/FREE = lime. Used in the Nav menus, model picker, Explore cards and Apps cards.
+- Top-left: "H" logo + "Higgsview" wordmark (back as of 2026-09-24).
 - Top-right of the Nav, like Higgsfield's Pricing/Enterprise/Login area:
   - Spending pill with the Pricing diamond icon and a pink bubble showing this month's spend
   - Upcoming with the Enterprise sparkle icon and the NEW count
@@ -98,9 +99,9 @@ Done and verified locally:
 ## Account menu, profile, password (2026-09-24)
 - Top-right: Spending, Upcoming, divider, **balance pill in dollars** (credits × $0.005; the menu shows credits), **account circle** (initials from the profile).
 - `components/AccountMenu.tsx` dropdown (modeled on Higgsfield's):
-  - Name and a credits card: 28-dot meter vs the highest balance seen in this browser (`localStorage hv_peak_credits`), ≈$ value, "lasts ~N days at your 7-day pace", and a Top up button (kie.ai/billing)
+  - Name and a credits card: 28-dot meter vs the highest balance seen in this browser (`localStorage hv_peak_credits`) and a Top up button (no $/days-left line) (kie.ai/billing)
   - View profile
-  - Kie links: API Keys `/api-key`, Billing `/billing`, Usage `/usage`, Logs `/logs`, Pricing `/pricing`, Model Market `/market`
+  - Kie links: API Keys `/api-key`, Billing `/billing`, Logs `/logs`, Model Market `/market`
   - Sign Out
 - `/profile`: first/last name, username, email (`profile.json` in Blob via `/api/account`), plus Change password (`/api/account/password`).
 - **Password:** `lib/auth.ts`. The active hash is `auth.json` in Blob if set, else `sha256(APP_PASSWORD)`. `proxy.ts` compares the `hv_auth` cookie to it (60s cache per instance). Changing the password logs out other browsers.

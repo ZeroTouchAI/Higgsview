@@ -9,7 +9,6 @@ const KIE: [string, string, string][] = [
   ["API Keys", "https://kie.ai/api-key", "M15 7a4 4 0 1 1-3.8 5.2L4 19.5V22h3v-2h2v-2h2l1.2-1.2A4 4 0 0 1 15 7Z"],
   ["Billing", "https://kie.ai/billing", "M3 6h18v12H3zM3 10h18"],
   ["Logs", "https://kie.ai/logs", "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"],
-  ["Pricing", "https://kie.ai/pricing", "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8ZM7.5 7.5h.01"],
   ["Model Market", "https://kie.ai/market", "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],
 ];
 const Icon = ({ d }: { d: string }) => (
@@ -20,7 +19,7 @@ const row = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-med
 export const initialsOf = (p: Profile) =>
   ((p.firstName?.[0] ?? "") + (p.lastName?.[0] ?? "")).toUpperCase() || (p.username ?? "HV").slice(0, 2).toUpperCase();
 
-export default function AccountMenu({ credits, usdPerDay, onSignOut }: { credits?: number; usdPerDay?: number; onSignOut: () => void }) {
+export default function AccountMenu({ credits, onSignOut }: { credits?: number; onSignOut: () => void }) {
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<Profile>({});
   // Highest balance seen in this browser = a full meter.
@@ -37,7 +36,6 @@ export default function AccountMenu({ credits, usdPerDay, onSignOut }: { credits
   const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.username || "Higgsview";
   const DOTS = 28;
   const filled = credits != null && peak ? Math.max(credits > 0 ? 1 : 0, Math.round((credits / peak) * DOTS)) : 0;
-  const daysLeft = credits != null && usdPerDay ? (credits * 0.005) / usdPerDay : undefined;
 
   return (
     <div className="relative">
@@ -67,10 +65,6 @@ export default function AccountMenu({ credits, usdPerDay, onSignOut }: { credits
                   <span key={n} className={`size-1.5 rounded-full ${n < filled ? (filled <= 4 ? "bg-[#ED1572]" : "bg-lime") : "bg-white/15"}`} />
                 ))}
               </div>
-              <p className="mt-2 text-xs text-muted">
-                {credits != null ? `≈ $${(credits * 0.005).toFixed(2)}` : ""}
-                {daysLeft != null && ` · lasts ~${daysLeft < 1 ? "<1" : Math.round(daysLeft)} day${Math.round(daysLeft) === 1 ? "" : "s"} at your 7-day pace`}
-              </p>
               <div className="my-3 h-px bg-white/10" />
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 font-semibold"><span className="text-lime">♛</span> Top up credits</span>
