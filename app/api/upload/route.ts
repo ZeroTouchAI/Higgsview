@@ -4,7 +4,9 @@ import { issueSignedToken, presignUrl } from "@vercel/blob";
 // and the GET URL (valid 24h) is what we hand to Kie as the input image/video.
 export async function POST(req: Request) {
   const { name, type, size } = await req.json();
-  if (!/^(image|video|audio)\//.test(type ?? "")) return Response.json({ error: "Only images, videos or audio" }, { status: 400 });
+  // What the browser sends after conversion (other image types are turned into JPG first).
+  if (!/^(image\/(jpeg|png)|video\/(mp4|quicktime|webm)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|x-m4a|m4a|aac))$/.test(type ?? ""))
+    return Response.json({ error: "Unsupported file type. Use JPG/PNG, MP4/MOV/WebM or MP3/WAV/M4A." }, { status: 400 });
   if (size > 500 * 1024 * 1024) return Response.json({ error: "Max 500 MB" }, { status: 400 });
   const pathname = `uploads/${Date.now()}-${String(name).replace(/[^\w.-]/g, "_")}`;
   const validUntil = Date.now() + 24 * 60 * 60 * 1000;

@@ -2,6 +2,13 @@
 import { useRef, useState } from "react";
 
 // Uploads straight from the browser to our Blob store via a presigned URL (any size), then returns a URL Kie can read.
+// File types the models accept (images other than JPG/PNG are converted to JPG before upload).
+const TYPES: Record<string, [RegExp, string, string]> = {
+  image: [/^image\/(jpeg|png|webp|gif|avif|bmp)$/, ".jpg,.jpeg,.png,.webp,.gif,.avif,.bmp", "JPG, PNG, WebP or GIF"],
+  video: [/^video\/(mp4|quicktime|webm)$/, ".mp4,.mov,.webm", "MP4, MOV or WebM"],
+  audio: [/^audio\/(mpeg|mp3|wav|x-wav|wave|mp4|x-m4a|m4a|aac)$/, ".mp3,.wav,.m4a,.aac", "MP3, WAV, M4A or AAC"],
+};
+
 export function Upload({ label, accept, value, onChange, optional, maxPixels, maxSecs, minSide, split, compact }: {
   label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number, part2?: string) => void;
   optional?: boolean; maxPixels?: number; maxSecs?: number; minSide?: number; compact?: boolean;
@@ -14,6 +21,8 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
   async function pick(f?: File) {
     if (!f) return;
     setErr(""); setNote("");
+    const [ok, , names] = TYPES[accept.split("/")[0]];
+    if (!ok.test(f.type)) return setErr(`Unsupported file. Use ${names}.`);
     let seconds: number | undefined;
     setStatus("Reading…");
     try {
@@ -65,7 +74,7 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
       </button>
       {value && note && <span className="absolute inset-x-1 bottom-1 rounded bg-black/75 px-1 py-0.5 text-[10px] text-lime">{note}</span>}
       {value && <button onClick={() => onChange(undefined)} aria-label={`Remove ${label}`} className="absolute top-1 right-1 rounded-md bg-black/70 px-1.5">✕</button>}
-      <input ref={input} type="file" accept={accept} hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
+      <input ref={input} type="file" accept={TYPES[accept.split("/")[0]][1]} hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
   );
 }
