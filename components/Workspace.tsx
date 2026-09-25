@@ -59,15 +59,11 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
       start: media.start, end: media.end, video: media.video, refs, taskId: extendFrom?.taskId,
     };
     try {
-      // A long video split into 2 parts: generate both as one group (then "Join" them in History).
-      const jobs = media.video2
-        ? [{ video: media.video, label: "Part 1/2" }, { video: media.video2, label: "Part 2/2" }]
-        : [{ video: media.video, label: undefined }];
-      const group = media.video2 ? crypto.randomUUID() : undefined;
-      for (const j of jobs) {
-        const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify({ modelId: model.id, params: { ...params, video: j.video }, group, label: j.label }) }).then((r) => r.json());
-        if (d.error) throw new Error(d.error);
-      }
+      // A long video split into 2 parts: part 1 now; part 2 starts when it finishes, using part 1's last frame
+      // as an extra reference so the swapped people look the same (Feed runs that step). Then "Join" them.
+      const split = media.video2 ? { group: crypto.randomUUID(), label: "Part 1/2", next: { video: media.video2, label: "Part 2/2" } } : {};
+      const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify({ modelId: model.id, params, ...split }) }).then((r) => r.json());
+      if (d.error) throw new Error(d.error);
       setExtendFrom(undefined);
       await refreshHistory();
     } catch (e) {

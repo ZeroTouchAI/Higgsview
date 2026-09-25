@@ -1,11 +1,25 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { lastFrame, uploadFile } from "@/components/Controls";
 import { refreshHistory, removeItem, type Item } from "@/lib/history";
 import Link from "next/link";
 import { appById, stepsOf } from "@/lib/apps";
 
 type Act = ((i: Item) => void) | undefined;
+// Split videos: when a part finishes, grab its last frame and start the next part with it (once per tab;
+// the server makes sure only one tab wins).
+const continued = new Set<string>();
+async function continuePart(i: Item) {
+  let frame = "";
+  try { frame = await uploadFile(await lastFrame(i.url!)); } catch {} // no frame: the next part still runs, just without it
+  await fetch("/api/generate", { method: "POST", body: JSON.stringify({ continueFrom: i.id, frame }) });
+  await refreshHistory();
+}
+
 export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { items: Item[]; kind: "video" | "image" | "audio"; onReuse?: Act; onContinue?: Act; onExtend?: Act }) {
+  useEffect(() => {
+    for (const i of items) if (i.next && i.state === "success" && i.url && !continued.has(i.id)) { continued.add(i.id); continuePart(i); }
+  }, [items]);
   if (!items.length) return <HowItWorks kind={kind} />;
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
@@ -22,6 +36,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
               <div className="flex flex-col items-center gap-2 text-sm text-muted">
                 <span className="size-8 animate-spin rounded-full border-2 border-line border-t-lime" />
                 Generating…{i.app && appById(i.app.id) && stepsOf(appById(i.app.id)!, i.app.input).length > 1 && ` step ${i.app.step + 1} of ${stepsOf(appById(i.app.id)!, i.app.input).length}`}
+                {i.next && <span className="px-4 text-center text-xs">{i.next.label.replace("/", " of ")} starts after this one, using its last frame so faces match. Keep Higgsview open.</span>}
               </div>
             ) : (
               <p className="p-4 text-center text-sm text-red-300">{i.error}</p>

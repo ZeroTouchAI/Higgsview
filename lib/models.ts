@@ -270,7 +270,7 @@ export const MODELS: Model[] = [
   {
     id: "genjutsu-kling", name: "Genjutsu · Real People (Kling Omni)", badge: "NEW", mode: "swap", tier: "premium",
     usdPerSec: { "720p": 0.1, "1080p": 0.15 }, // 720p measured 2026-09-24: 5s = $0.50; 1080p estimated
-    desc: "Swap people, outfits, products or the whole look in your video — works with real people. Say what to change; refer to your photos as “the person in image 1”. Videos over 15s (up to 30s) are split into 2 parts — Join them after.",
+    desc: "Swap people, outfits, products or the whole look in your video — works with real people. Say what to change; refer to your photos as “the person in image 1”. Videos over 15s (up to 30s) are split into 2 parts: part 2 starts after part 1 and uses its last frame so the faces match — then Join them.",
     durations: [-1], aspects: ["9:16", "16:9", "1:1"], resolutions: ["720p", "1080p"], defaultRes: "720p", audio: true,
     frames: "none", refs: 4, needs: ["video"], videoMaxSecs: 15, videoMinSide: 720, videoSplit: true,
     labels: { video: "Reference video" },

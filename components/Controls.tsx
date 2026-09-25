@@ -81,6 +81,20 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
 }
 
 // Browser → private Blob store (presigned PUT). Returns a 24h URL that Kie can read.
+// Last frame of a video as a JPG (fresh fetch: a copy cached without CORS would taint the canvas).
+export async function lastFrame(url: string): Promise<File> {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error("Couldn't load the finished part");
+  const v = Object.assign(document.createElement("video"), { muted: true, preload: "auto", src: URL.createObjectURL(await r.blob()) });
+  await new Promise((ok, fail) => { v.onloadedmetadata = ok; v.onerror = fail; });
+  v.currentTime = Math.max(0, v.duration - 0.2);
+  await new Promise((ok) => (v.onseeked = ok));
+  const c = Object.assign(document.createElement("canvas"), { width: v.videoWidth, height: v.videoHeight });
+  c.getContext("2d")!.drawImage(v, 0, 0);
+  const blob = await new Promise<Blob>((ok) => c.toBlob((b) => ok(b!), "image/jpeg", 0.92));
+  return new File([blob], `frame-${Date.now()}.jpg`, { type: "image/jpeg" });
+}
+
 export async function uploadFile(f: File | Blob, name = (f as File).name ?? "file"): Promise<string> {
   const d = await fetch("/api/upload", { method: "POST", body: JSON.stringify({ name, type: f.type, size: f.size }) }).then((r) => r.json());
   if (d.error) throw new Error(d.error);

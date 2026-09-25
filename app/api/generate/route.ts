@@ -6,7 +6,9 @@ import type { Item } from "@/lib/history";
 
 // Body: { modelId, params } for the studio, or { appId, input } for an App.
 export async function POST(req: Request) {
-  const body = (await req.json()) as { modelId?: string; params?: Params; appId?: string; input?: AppInput; group?: string; label?: string };
+  const body = (await req.json()) as { modelId?: string; params?: Params; appId?: string; input?: AppInput; group?: string; label?: string;
+    next?: Item["next"]; continueFrom?: string; frame?: string };
+  if (body.continueFrom) return continuePart(body.continueFrom, body.frame ?? "");
   const app = body.appId ? appById(body.appId) : undefined;
   if (body.appId && !app) return Response.json({ error: "Unknown app" }, { status: 400 });
   const items: Item[] = [];
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
       const r = await runModel(m, params);
       items.push({
         id: crypto.randomUUID(), kind: m.output ?? (m.mode === "image" ? "image" : "video"), modelId: m.id,
-        modelName: body.label ? `${m.name} · ${body.label}` : m.name, prompt: params.prompt, params, group: body.group,
+        modelName: body.label ? `${m.name} · ${body.label}` : m.name, prompt: params.prompt, params, group: body.group, next: body.next,
         taskId: r.taskId, url: r.url, text: r.text, state: r.taskId ? "pending" : "success", usd: r.taskId ? undefined : 0, createdAt: Date.now(),
       });
     }
@@ -56,4 +58,28 @@ export async function POST(req: Request) {
     return Response.json({ error: `Started (${items.map((i) => i.taskId).join(", ")}) but couldn't save to History: ${(e as Error).message}` }, { status: 500 });
   }
   return Response.json({ ok: true, ids: items.map((i) => i.id) });
+}
+
+// Split video, part 2+: the browser sends the finished part's last frame. Claim the waiting part exactly once
+// (several open tabs may try), then run it with that frame as an extra reference so the swapped faces carry over.
+async function continuePart(id: string, frame: string) {
+  let prev: Item | undefined;
+  await mutate((all) => { prev = undefined; return all.map((i) => (i.id === id && i.next ? ((prev = i), { ...i, next: undefined }) : i)); });
+  if (!prev?.next || !prev.params) return Response.json({ ok: true, ids: [] }); // already started
+  const m = byId(prev.modelId)!;
+  const refs = prev.params.refs ?? [];
+  const carry = frame && refs.length < (m.refs ?? 0);
+  const params: Params = {
+    ...prev.params, video: prev.next.video, refs: carry ? [...refs, frame] : refs,
+    prompt: carry ? `${prev.params.prompt} Image ${refs.length + 1} is a frame from the previous part of this same video: every swapped person must look exactly like they do in image ${refs.length + 1}.`.trim() : prev.params.prompt,
+  };
+  const item: Item = { id: crypto.randomUUID(), kind: prev.kind, modelId: m.id, modelName: `${m.name} · ${prev.next.label}`, prompt: prev.prompt, params, group: prev.group, state: "pending", createdAt: Date.now() };
+  try {
+    const r = await runModel(m, params);
+    Object.assign(item, { taskId: r.taskId, url: r.url, state: r.taskId ? "pending" : "success" });
+  } catch (e) {
+    Object.assign(item, { state: "fail", error: (e as Error).message, usd: 0 });
+  }
+  await mutate((all) => [item, ...all]);
+  return Response.json({ ok: true, ids: [item.id] });
 }

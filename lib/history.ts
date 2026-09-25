@@ -21,6 +21,7 @@ export type Item = {
   text?: string; // text result (analysis, storyboard, transcript)
   group?: string; // items made together (script scenes, long-video parts); Feed offers "Join"
   params?: Params; // exact settings of a studio generation (used by "Regenerate")
+  next?: { video: string; label: string }; // split video: the next part starts when this one finishes, with its last frame as an extra reference
   hidden?: boolean; // "deleted" from History but kept so Spending stays accurate
   createdAt: number;
 };
