@@ -164,12 +164,14 @@ export async function recordClips(clips: { src: string; start?: number; end?: nu
   // Clock runs in a Worker: page timers get throttled to 1/s in background tabs, worker timers don't.
   const clock = new Worker(URL.createObjectURL(new Blob(["setInterval(() => postMessage(0), 1000 / 30)"], { type: "text/javascript" })));
   clock.onmessage = () => {
-    if (rec.state !== "recording") return;
+    if (rec.state === "inactive") return;
     const c = vids[k];
-    draw(c.v);
-    track.requestFrame();
-    progress(Math.min(99, Math.round(((before + c.v.currentTime - c.start) / total) * 100)));
-    if (c.v.currentTime >= c.end || c.v.ended) {
+    if (rec.state === "recording") {
+      draw(c.v);
+      track.requestFrame();
+      progress(Math.min(99, Math.round(((before + c.v.currentTime - c.start) / total) * 100)));
+    }
+    if (c.v.currentTime >= c.end || c.v.ended) { // checked even while paused: a clip that ends fires "pause" first
       c.v.pause();
       before += c.end - c.start;
       if (++k < vids.length) vids[k].v.play(); else { music?.pause(); rec.stop(); }
