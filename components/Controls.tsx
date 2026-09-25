@@ -10,7 +10,7 @@ const TYPES: Record<string, [RegExp, string, string]> = {
 };
 
 export function Upload({ label, accept, value, onChange, optional, maxPixels, maxSecs, minSide, split, compact }: {
-  label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number, part2?: string) => void;
+  label: string; accept: string; value?: string; onChange: (url?: string, seconds?: number, part2?: string, ratio?: number) => void; // ratio = video width / height
   optional?: boolean; maxPixels?: number; maxSecs?: number; minSide?: number; compact?: boolean;
   split?: boolean; // videos longer than maxSecs become 2 parts (up to 2× maxSecs) instead of being trimmed
 }) {
@@ -23,12 +23,13 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
     setErr(""); setNote("");
     const [ok, , names] = TYPES[accept.split("/")[0]];
     if (!ok.test(f.type)) return setErr(`Unsupported file. Use ${names}.`);
-    let seconds: number | undefined;
+    let seconds: number | undefined, ratio: number | undefined;
     setStatus("Reading…");
     try {
       if (f.type.startsWith("video/")) {
         const meta = await videoMeta(f);
         seconds = meta?.seconds;
+        if (meta) ratio = meta.w / meta.h;
         // Fix the video here instead of making you re-export: shrink to ~720p for pixel-limited models
         // (Seedance: 409,600–927,408 px) and cut anything past the model's max length.
         const px = meta ? meta.w * meta.h : 0;
@@ -45,7 +46,7 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
             const len = maxSecs! - 0.5, rest = Math.min(meta.seconds - len, len);
             const [a, b] = [await resizeVideo(f, w, h, len, (p) => setStatus(`Preparing part 1… ${p}%`)), await resizeVideo(f, w, h, rest, (p) => setStatus(`Preparing part 2… ${p}%`), len)];
             const [ua, ub] = [await uploadFile(a), await uploadFile(b)];
-            onChange(ua, len + rest, ub);
+            onChange(ua, len + rest, ub, meta.w / meta.h);
             setNote(`Split into 2 parts (${Math.round(len + rest)}s total)`);
             return;
           }
@@ -57,7 +58,7 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
       // Some models (e.g. Kling Avatar) only take JPG/PNG: convert WebP/AVIF/GIF etc. to JPG first.
       if (f.type.startsWith("image/") && !/^image\/(jpeg|png)$/.test(f.type)) f = await toJpeg(f);
       setStatus("Uploading…");
-      onChange(await uploadFile(f), seconds);
+      onChange(await uploadFile(f), seconds, undefined, ratio);
     } catch (e) {
       setErr((e as Error).message);
     } finally {

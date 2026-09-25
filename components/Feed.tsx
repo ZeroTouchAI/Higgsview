@@ -42,7 +42,9 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
                 {onContinue && i.lastFrame && <button onClick={() => onContinue(i)} title="Start a new clip from this clip's last frame" className="rounded bg-chip px-2 py-1 hover:text-fg">Continue →</button>}
                 {onExtend && i.state === "success" && i.modelId.startsWith("grok") && <button onClick={() => onExtend(i)} title="Add 6-10s to this video" className="rounded bg-chip px-2 py-1 hover:text-fg">Extend +</button>}
                 {i.group && i.group === i.id && <Link href={`/join?group=${i.group}`} className="rounded-md bg-lime px-2 py-1 font-semibold text-black hover:brightness-110">⧉ Join scenes</Link>}
-                {i.group && i.group !== i.id && i.kind === "video" && <Link href={`/join?group=${i.group}`} className="rounded bg-chip px-2 py-1 hover:text-fg">⧉ Join</Link>}
+                {i.group && i.group !== i.id && i.kind === "video" && (/ · Part \d/.test(i.modelName)
+                  ? <Link href={`/join?group=${i.group}`} className="rounded-md bg-lime px-2 py-1 font-semibold text-black hover:brightness-110">⧉ Join both parts into one video</Link>
+                  : <Link href={`/join?group=${i.group}`} className="rounded bg-chip px-2 py-1 hover:text-fg">⧉ Join</Link>)}
                 {i.url && <DownloadButton item={i} />}
                 {i.url && <DriveButton item={i} />}
                 <button onClick={() => confirm("Delete this from history?") && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>

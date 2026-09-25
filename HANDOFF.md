@@ -175,7 +175,7 @@ Build once the owner has the Kie affiliate link (`kie.ai?ref=CODE`):
 - Auto-delete uploads after 7 days (Blob cost); build on a preview deploy before switching production.
 
 ## Price audit (2026-09-25) and version
-- **Version** shown top-right of the account dropdown: `VERSION` in `components/AccountMenu.tsx` (+ `package.json`). Now **1.2**; bump both on each release.
+- **Version** shown top-right of the account dropdown: `VERSION` in `components/AccountMenu.tsx` (+ `package.json`). **Bump on every change pushed** (owner rule, 2026-09-25): 1.2 = price audit + upload types, 1.3 = Genjutsu aspect fix.
 - **Kie's full price list is public**: `POST https://api.kie.ai/client/v1/model-pricing/page` with `{"pageNum":1,"pageSize":100}` (max 100 per page, ~500 rows; `usdPrice` per `creditUnit`). Use it to re-check prices.
 - All model prices in `lib/models.ts` now come from that list. `usdFlat` can be per resolution, `usdPerSecAudio` covers Kling 3's sound surcharge, and `estimateUsd(m, secs, res, audio)` takes the audio flag.
 - Big fixes: Seedance 2.0 defaulted to 1080p at $0.51/s while showing $0.09/s; now 720p ($0.205/s) with correct per-resolution prices. Seedance 2.5 / Kling 3 / Kling Turbo / Wan 2.7 / Wan Edit default to 720p; Seedance Fast/Mini to 480p; Nano Banana 2, GPT Image 2, FLUX, Seedream to 1K/basic; Topaz to 2×; Character Swap / Animate Move to 580p ($0.0475/s vs $0.0625). Gemini Omni costs the same at 720p and 1080p, so it defaults to 1080p.
@@ -184,3 +184,5 @@ Build once the owner has the Kie affiliate link (`kie.ai?ref=CODE`):
 - Veo 3.1: Kie doesn't say which tier (Lite $0.15 / Fast $0.30 / Quality $1.25 per video) model `veo-3-1` bills; estimate assumes Fast. Check the real cost after the first run.
 - Cheaper options not yet added: Kling 2.6 Motion Control ($0.055/s vs $0.10), Nano Banana 2 Lite ($0.02), Seedance 1.5 Pro ($0.0175/s at 720p no audio), PixVerse v6 ($0.036/s 720p).
 - **Upload file types** (2026-09-25): `Upload` in `components/Controls.tsx` only takes images JPG/PNG/WebP/GIF/AVIF/BMP (non-JPG/PNG converted to JPG), videos MP4/MOV/WebM, audio MP3/WAV/M4A/AAC. Checked on pick and drag-drop (the file picker's filter alone can be bypassed); `/api/upload` also rejects anything but JPG/PNG, MP4/MOV/WebM and those audio types.
+- **Genjutsu shape fix (v1.3)**: Kling Omni with reference photos used the first aspect chip (9:16), so a 16:9 two-person video came back as a 720×1280 portrait crop with one person cut out (and each 15s part cropped differently). Uploading a video now sets the output aspect to the closest match of the video's shape (`closestAspect` in Workspace; `Upload` passes `ratio` as the 4th onChange arg). Split parts show a lime "⧉ Join both parts into one video" button.
+- Kling Omni is limited to 15s per job by Kie; 30s = 2 parts + Join. Wan Character Swap does 30s in one go but only swaps ONE person (one image) and can drift back to the original face mid-video.

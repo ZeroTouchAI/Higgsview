@@ -8,6 +8,12 @@ import Feed from "@/components/Feed";
 import { Chip, Upload } from "@/components/Controls";
 
 const TABS: [Mode, string][] = [["create", "Create"], ["edit", "Edit"], ["motion", "Motion Control"], ["swap", "Genjutsu"]];
+// "16:9"-style option nearest to a width/height ratio.
+const closestAspect = (aspects: string[], ratio: number) =>
+  aspects.filter((a) => /^\d+:\d+$/.test(a)).sort((a, b) => {
+    const r = (x: string) => Math.abs(Math.log(Number(x.split(":")[0]) / Number(x.split(":")[1]) / ratio));
+    return r(a) - r(b);
+  })[0] ?? aspects[0];
 const TIER_LABEL = { free: "Free", budget: "Budget", standard: "Standard", premium: "Premium" };
 type Media = { start?: string; end?: string; video?: string; video2?: string; videoSecs?: number };
 
@@ -115,7 +121,11 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
           <div className="grid grid-cols-2 gap-2">
             {model.needs?.includes("video") && (
               <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs} minSide={model.videoMinSide} split={model.videoSplit}
-                onChange={(video, videoSecs, video2) => setMedia((m) => ({ ...m, video, videoSecs, video2 }))} />
+                onChange={(video, videoSecs, video2, ratio) => {
+                  setMedia((m) => ({ ...m, video, videoSecs, video2 }));
+                  // Output shape follows the uploaded video (a 9:16 output from a 16:9 video crops people out).
+                  if (ratio && !/auto|adaptive/.test(model.aspects[0])) setAspect(closestAspect(model.aspects, ratio));
+                }} />
             )}
             {model.frames !== "none" && (
               <Upload label={label("start", kind === "image" ? "Reference" : "Start frame")} accept="image/*"
