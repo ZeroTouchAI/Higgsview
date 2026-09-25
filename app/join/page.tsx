@@ -7,6 +7,13 @@ import { recordClips, uploadFile } from "@/components/Controls";
 // Join clips: stitch several videos (script scenes, long-video parts, anything in History) into one MP4 in the
 // browser, optionally with a soundtrack (e.g. the generated voiceover), and save it to History permanently.
 const stamp = () => ({ id: crypto.randomUUID(), createdAt: Date.now() }); // outside the component (purity lint)
+// Fresh copy as a local blob: the History cards already loaded these files without CORS, and Chrome reuses
+// that cached copy (no Access-Control header), which makes the canvas recorder fail with "Format error".
+const local = async (u: string) => {
+  const r = await fetch(u, { cache: "no-store" });
+  if (!r.ok) throw new Error("Couldn't load a clip (Kie links expire after about 2 weeks)");
+  return URL.createObjectURL(await r.blob());
+};
 const order = (i: Item) => Number(i.modelName.match(/(?:Scene|Part) (\d+)/)?.[1] ?? 0);
 
 export default function JoinPage() {
@@ -35,16 +42,18 @@ function Join() {
     try {
       const clips = seq.map((id) => videos.find((v) => v.id === id)!);
       setStatus("Loading clips…");
+      const srcs = await Promise.all(clips.map((c) => local(c.url!)));
+      const track = all.find((a) => a.id === soundtrack)?.url;
       // Output size from the first clip's shape, ~720p.
       const meta = await new Promise<{ w: number; h: number }>((ok, fail) => {
-        const v = Object.assign(document.createElement("video"), { crossOrigin: "anonymous", preload: "metadata", src: clips[0].url! });
+        const v = Object.assign(document.createElement("video"), { preload: "metadata", src: srcs[0] });
         v.onloadedmetadata = () => ok({ w: v.videoWidth, h: v.videoHeight });
         v.onerror = () => fail(new Error("Couldn't load the first clip (Kie links expire after about 2 weeks)"));
       });
       const k = 1280 / Math.max(meta.w, meta.h);
       const even = (n: number) => Math.round((n * k) / 2) * 2;
-      const blob = await recordClips(clips.map((c) => ({ src: c.url! })), even(meta.w), even(meta.h),
-        (p) => setStatus(`Joining… ${p}% (plays in real time — keep this tab open)`), all.find((a) => a.id === soundtrack)?.url);
+      const blob = await recordClips(srcs.map((src) => ({ src })), even(meta.w), even(meta.h),
+        (p) => setStatus(`Joining… ${p}% (plays in real time — keep this tab open)`), track && await local(track));
       setStatus("Saving…");
       const { id, createdAt } = stamp();
       const getUrl = await uploadFile(blob, `joined-${createdAt}.mp4`);
