@@ -100,7 +100,7 @@ Done and verified locally:
 ## Account menu, profile, password (2026-09-24)
 - Top-right: Spending, Upcoming, divider, **balance pill in dollars** (credits × $0.005; the menu shows credits), **account circle** (initials from the profile).
 - `components/AccountMenu.tsx` dropdown (modeled on Higgsfield's):
-  - Name and a credits card: 28-dot meter vs the highest balance seen in this browser (`localStorage hv_peak_credits`) and a Top up button (no $/days-left line) (kie.ai/billing)
+  - Name and a credits card: 28-dot meter on a fixed 0–10,000 credit scale ($50 = full) and a Top up button (no $/days-left line) (kie.ai/billing)
   - View profile
   - Kie links: API Keys `/api-key`, Billing `/billing`, Logs `/logs`
   - Sign Out

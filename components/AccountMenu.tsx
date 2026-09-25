@@ -21,20 +21,17 @@ export const initialsOf = (p: Profile) =>
 export default function AccountMenu({ credits, onSignOut }: { credits?: number; onSignOut: () => void }) {
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<Profile>({});
-  // Highest balance seen in this browser = a full meter.
-  const [storedPeak] = useState(() => { try { return Number(localStorage.getItem("hv_peak_credits")) || 0; } catch { return 0; } });
-  const peak = Math.max(storedPeak, credits ?? 0);
   useEffect(() => {
     const load = () => fetch("/api/account").then((r) => r.json()).then(setProfile, () => {});
     load();
     addEventListener("hv_profile", load);
     return () => removeEventListener("hv_profile", load);
   }, []);
-  useEffect(() => { try { localStorage.setItem("hv_peak_credits", String(peak)); } catch {} }, [peak]);
 
   const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.username || "Higgsview";
   const DOTS = 28;
-  const filled = credits != null && peak ? Math.max(credits > 0 ? 1 : 0, Math.round((credits / peak) * DOTS)) : 0;
+  const FULL = 10_000; // a full meter = 10,000 credits ($50)
+  const filled = credits != null ? Math.min(DOTS, Math.max(credits > 0 ? 1 : 0, Math.round((credits / FULL) * DOTS))) : 0;
 
   return (
     <div className="relative">
