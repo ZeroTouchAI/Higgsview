@@ -3,9 +3,11 @@ import { useEffect, useReducer, useState, useSyncExternalStore } from "react";
 import type { Profile } from "@/lib/auth";
 import { initialsOf } from "@/components/AccountMenu";
 import { ConnectKie, getKey, setKey } from "@/components/KeyGate";
+import { canPickFolder, folderLink, pickFolder, savedFolder, setSavedFolder } from "@/lib/google";
 
 const FIELDS: [keyof Profile, string, string][] = [["firstName", "First name", "given-name"], ["lastName", "Last name", "family-name"], ["username", "Username", "username"]];
 const noop = () => () => {};
+const localStorageFolder = () => { const f = savedFolder(); return f ? JSON.stringify(f) : ""; }; // a string, so the snapshot compares stable
 const input = "rounded-xl bg-chip px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-lime";
 
 export default function ProfilePage() {
@@ -14,6 +16,12 @@ export default function ProfilePage() {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   const key = useSyncExternalStore(noop, getKey, () => ""); // localStorage: empty during server render
   const [changing, setChanging] = useState(false);
+  const folder = useSyncExternalStore(noop, () => localStorageFolder(), () => "");
+  const [folderErr, setFolderErr] = useState("");
+  async function chooseFolder() {
+    setFolderErr("");
+    try { const f = await pickFolder(); if (f) { setSavedFolder(f); refresh(); } } catch (e) { setFolderErr((e as Error).message); }
+  }
   useEffect(() => { fetch("/api/account").then((r) => r.json()).then(setP, () => {}); }, []);
 
   async function save(e: React.FormEvent) {
@@ -45,6 +53,20 @@ export default function ProfilePage() {
           {saved && <span className="text-sm text-muted">{saved}</span>}
         </div>
       </form>
+
+      <section id="drive" className="flex flex-col gap-3 rounded-2xl bg-panel p-4">
+        <h2 className="font-black uppercase">Google Drive folder</h2>
+        <p className="text-sm text-muted">
+          The ▲ Google Drive button saves to{" "}
+          {folder ? <a href={folderLink(JSON.parse(folder).id)} target="_blank" rel="noreferrer" className="font-semibold text-fg underline">{JSON.parse(folder).name}</a>
+            : <span className="font-semibold text-fg">My Drive › Higgsview</span>}.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {canPickFolder && <button onClick={chooseFolder} className="rounded-xl bg-chip px-4 py-2 text-sm font-semibold hover:bg-line">Choose folder…</button>}
+          {folder && <button onClick={() => { setSavedFolder(undefined); refresh(); }} className="rounded-xl bg-chip px-4 py-2 text-sm font-semibold hover:bg-line">Use My Drive › Higgsview</button>}
+        </div>
+        {folderErr && <p role="alert" className="text-sm text-red-300">{folderErr}</p>}
+      </section>
 
       <section id="key" className="flex flex-col gap-3 rounded-2xl bg-panel p-4">
         <h2 className="font-black uppercase">Kie.ai API key</h2>

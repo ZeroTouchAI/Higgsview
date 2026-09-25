@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { lastFrame, uploadFile } from "@/components/Controls";
-import { loadGoogle, saveToDrive } from "@/lib/google";
+import { loadGoogle, saveToDrive, savedFolder } from "@/lib/google";
 import { refreshHistory, removeItem, type Item } from "@/lib/history";
 import Link from "next/link";
 import { appById, stepsOf } from "@/lib/apps";
@@ -162,13 +162,18 @@ function DriveButton({ item }: { item: Item }) {
   const [err, setErr] = useState("");
   useEffect(() => { loadGoogle().catch(() => {}); }, []); // loaded before the click, so Google's popup isn't blocked
   if (item.driveLink)
-    return <a href={item.driveLink} target="_blank" rel="noreferrer" className={`${ACTION} ${BLUE}`}>✓ In Drive</a>;
+    return (
+      <span className="flex gap-1">
+        <a href={item.driveLink} target="_blank" rel="noreferrer" title="Open the saved file in Google Drive" className={`${ACTION} ${BLUE}`}>↗ Open in Drive</a>
+        {item.driveFolder && <a href={item.driveFolder.link} target="_blank" rel="noreferrer" title={`Saved in ${item.driveFolder.name}: open the folder`} className={`${ACTION} ${BLUE}`}>📁</a>}
+      </span>
+    );
   async function exportIt() {
     setState("busy");
     try {
       const ext = item.kind === "video" ? "mp4" : item.kind === "audio" ? "mp3" : "png";
-      const link = await saveToDrive(item.url!, `higgsview-${item.modelId}-${new Date(item.createdAt).toISOString().slice(0, 19).replace(/:/g, "-")}.${ext}`);
-      await fetch("/api/export", { method: "POST", body: JSON.stringify({ id: item.id, link }) });
+      const saved = await saveToDrive(item.url!, `higgsview-${item.modelId}-${new Date(item.createdAt).toISOString().slice(0, 19).replace(/:/g, "-")}.${ext}`);
+      await fetch("/api/export", { method: "POST", body: JSON.stringify({ id: item.id, link: saved.link, folder: saved.folder, folderName: saved.folderName }) });
       await refreshHistory();
     } catch (e) {
       setErr((e as Error).message);
@@ -176,7 +181,7 @@ function DriveButton({ item }: { item: Item }) {
     }
   }
   return (
-    <button onClick={exportIt} disabled={state === "busy"} title={err || "Save to your Google Drive → My Drive/Higgsview"}
+    <button onClick={exportIt} disabled={state === "busy"} title={err || `Save to your Google Drive → ${savedFolder()?.name ?? "My Drive › Higgsview"} (change the folder in your profile)`}
       className={`${ACTION} ${state === "error" ? "bg-red-500/20 text-red-300" : BLUE}`}>
       {state === "busy" ? "Saving…" : state === "error" ? "Retry Drive" : "▲ Google Drive"}
     </button>
