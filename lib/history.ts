@@ -17,6 +17,7 @@ export type Item = {
   error?: string;
   usd?: number;
   driveLink?: string; // set after "Export to Drive"
+  driveFolder?: { link: string; name: string }; // the Drive folder it was saved in
   app?: { id: string; input: AppInput; step: number; notes?: string }; // multi-step App progress (notes = text from earlier steps)
   text?: string; // text result (analysis, storyboard, transcript)
   group?: string; // items made together (script scenes, long-video parts); Feed offers "Join"
