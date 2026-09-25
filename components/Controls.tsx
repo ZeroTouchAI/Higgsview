@@ -43,7 +43,8 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
           const secs = Math.min(meta.seconds, maxSecs ? maxSecs - 0.5 : Infinity); // margin: the stop timer can run a little late
           if (split && tooLong) {
             // Long video: two parts of up to maxSecs each, generated separately and joined afterwards.
-            const len = maxSecs! - 0.5, rest = Math.min(meta.seconds - len, len);
+            // Two equal halves (a 17s video → 2 × 8.5s, not 14.5s + a 2.5s part Kie rejects), each at most maxSecs − 0.5.
+            const len = Math.min(maxSecs! - 0.5, meta.seconds / 2), rest = len;
             const [a, b] = [await resizeVideo(f, w, h, len, (p) => setStatus(`Preparing part 1… ${p}%`)), await resizeVideo(f, w, h, rest, (p) => setStatus(`Preparing part 2… ${p}%`), len)];
             const [ua, ub] = [await uploadFile(a), await uploadFile(b)];
             onChange(ua, len + rest, ub, meta.w / meta.h);
