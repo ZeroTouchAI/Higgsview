@@ -173,3 +173,13 @@ Build once the owner has the Kie affiliate link (`kie.ai?ref=CODE`):
 - **Google Drive export** via the user's own Google login (`drive.file` scope) instead of the owner's Make.com scenario.
 - Public GitHub repo + "Deploy to Vercel" button (README uses the affiliate link) so anyone can run their own copy.
 - Auto-delete uploads after 7 days (Blob cost); build on a preview deploy before switching production.
+
+## Price audit (2026-09-25) and version
+- **Version** shown top-right of the account dropdown: `VERSION` in `components/AccountMenu.tsx` (+ `package.json`). Now **1.2**; bump both on each release.
+- **Kie's full price list is public**: `POST https://api.kie.ai/client/v1/model-pricing/page` with `{"pageNum":1,"pageSize":100}` (max 100 per page, ~500 rows; `usdPrice` per `creditUnit`). Use it to re-check prices.
+- All model prices in `lib/models.ts` now come from that list. `usdFlat` can be per resolution, `usdPerSecAudio` covers Kling 3's sound surcharge, and `estimateUsd(m, secs, res, audio)` takes the audio flag.
+- Big fixes: Seedance 2.0 defaulted to 1080p at $0.51/s while showing $0.09/s; now 720p ($0.205/s) with correct per-resolution prices. Seedance 2.5 / Kling 3 / Kling Turbo / Wan 2.7 / Wan Edit default to 720p; Seedance Fast/Mini to 480p; Nano Banana 2, GPT Image 2, FLUX, Seedream to 1K/basic; Topaz to 2×; Character Swap / Animate Move to 580p ($0.0475/s vs $0.0625). Gemini Omni costs the same at 720p and 1080p, so it defaults to 1080p.
+- Kling Motion Control is billed per second of the reference video (durations `[-1]`). Topaz video, lip-sync and Kling Avatar are per second ($0.04–0.07/s), not flat.
+- App image steps (`nano()`, face swap) use 1K. Video tiers unchanged: Draft = Grok 480p (~$0.07), Standard = Kling 3 720p no sound ($0.35/5s), Premium = Kling 3 1080p + sound ($0.68/5s).
+- Veo 3.1: Kie doesn't say which tier (Lite $0.15 / Fast $0.30 / Quality $1.25 per video) model `veo-3-1` bills; estimate assumes Fast. Check the real cost after the first run.
+- Cheaper options not yet added: Kling 2.6 Motion Control ($0.055/s vs $0.10), Nano Banana 2 Lite ($0.02), Seedance 1.5 Pro ($0.0175/s at 720p no audio), PixVerse v6 ($0.036/s 720p).

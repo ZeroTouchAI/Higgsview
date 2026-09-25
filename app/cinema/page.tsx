@@ -52,7 +52,7 @@ export default function CinemaStudio() {
   const aspectV = model.aspects.includes(aspect) ? aspect : model.aspects.includes("16:9") ? "16:9" : model.aspects[0];
   const resolution = model.resolutions.includes(res) ? res : defaultRes(model);
   const duration = model.durations.includes(dur) ? dur : model.durations[0] ?? 0;
-  const cost = estimateUsd(model, duration, resolution);
+  const cost = estimateUsd(model, duration, resolution, true);
   const toggleMove = (m: string) => setMoves((ms) => (ms.includes(m) ? ms.filter((x) => x !== m) : ms.length < 3 ? [...ms, m] : ms));
 
   const fullPrompt = [

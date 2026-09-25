@@ -40,7 +40,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
   const items = useHistory();
 
   const seconds = duration > 0 ? duration : media.videoSecs ?? 10;
-  const cost = estimateUsd(model, seconds, resolution);
+  const cost = estimateUsd(model, seconds, resolution, audio && !!model.audio);
   const label = (k: "start" | "end" | "video", fallback: string) => model.labels?.[k] ?? fallback;
 
   async function generate() {

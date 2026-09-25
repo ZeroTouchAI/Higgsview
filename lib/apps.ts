@@ -57,14 +57,14 @@ const animate = (prompt: string | ((i: AppInput) => string), seconds = 5): Step 
   };
 };
 // Image steps run on Nano Banana 2 with the uploaded images as references (image 1 = start, image 2 = end).
-const nano = (prompt: string | ((i: AppInput) => string), final = true): Step => (i) => ({
+const nano = (prompt: string | ((i: AppInput) => string)): Step => (i) => ({
   modelId: "nano-banana-2",
-  params: { prompt: typeof prompt === "function" ? prompt(i) : prompt, start: i.start, end: i.end, aspect: "auto", resolution: final ? "2K" : "1K" },
+  params: { prompt: typeof prompt === "function" ? prompt(i) : prompt, start: i.start, end: i.end, aspect: "auto", resolution: "1K" },
 });
 const KEEP = "Keep the person's face, identity and likeness exactly the same.";
-const restyleThenAnimate = (look: string, motion: string): Step[] => [nano(`${look} ${KEEP}`, false), animate(motion)];
+const restyleThenAnimate = (look: string, motion: string): Step[] => [nano(`${look} ${KEEP}`), animate(motion)];
 const productAd = (scene: string, motion: string): Step[] => [
-  nano(`${scene} The product must stay exactly as in the photo: same shape, colors, logo and label text.`, false),
+  nano(`${scene} The product must stay exactly as in the photo: same shape, colors, logo and label text.`),
   animate(`${motion} Premium commercial look, cinematic lighting.`),
 ];
 // Text-AI step (Gemini via Kie): prompt + optional media it should look at/listen to. Runs instantly.
@@ -197,7 +197,7 @@ export const APPS: App[] = [
   // ---------- Studios ----------
   { id: "ugc-ad", name: "UGC Ad", cat: "studio", badge: "NEW", out: "video", desc: "A creator holds your product and talks about it to camera, with voice and lip-sync.",
     inputs: [["start", "Creator photo"], ["end", "Product photo"]], text: { label: "What they say", placeholder: "Honestly this is the only serum that fixed my skin in two weeks…" },
-    steps: [nano(`Photorealistic vertical selfie-style UGC photo: the person from image 1 holding the product from image 2 up near their face at home, natural daylight, phone-camera look. ${KEEP} The product keeps its exact label and colors.`, false),
+    steps: [nano(`Photorealistic vertical selfie-style UGC photo: the person from image 1 holding the product from image 2 up near their face at home, natural daylight, phone-camera look. ${KEEP} The product keeps its exact label and colors.`),
       animate((i) => `Vertical UGC video, handheld selfie. The person talks enthusiastically to camera, showing the product, and says: "${i.text}". Natural lip-sync, casual home audio.`, 10)] },
   { id: "talking-avatar", name: "Talking Avatar", cat: "studio", badge: "PRO", out: "video", desc: "Type a script, pick a voice, and your photo speaks it with lip-sync (ElevenLabs + Kling Avatar).",
     inputs: [["start", "Face photo"]], text: { label: "Script", placeholder: "Hi, I'm Alex from ZeroTouch AI. Let me show you how…" },
@@ -223,7 +223,7 @@ export const APPS: App[] = [
     steps: (i) => {
       const imgs = [i.start && "the person from image 1", i.end && `the location from image ${i.start ? 2 : 1}`, i.product && "the product from the last image"].filter(Boolean);
       const motion = animate((x) => `${fx} ${x.text ?? ""} Cinematic VFX shot, vertical.`.trim());
-      if (look && i.start) return [nano(`${look} ${KEEP}`, false), motion]; // restyle the photo first (split-screen paintings)
+      if (look && i.start) return [nano(`${look} ${KEEP}`), motion]; // restyle the photo first (split-screen paintings)
       // One photo: animate it directly. Several: compose them into one frame first.
       return imgs.length > 1 || (!i.start && (i.end || i.product))
         ? [(x) => ({ modelId: "nano-banana-2", params: { prompt: `One photorealistic cinematic vertical frame combining ${imgs.join(", ")}. ${KEEP}`, start: x.start ?? x.end ?? x.product, end: x.start ? x.end : undefined, refs: x.product && x.product !== (x.start ?? x.end ?? x.product) ? [x.product] : undefined, aspect: "9:16", resolution: "1K" } }), motion]
@@ -309,7 +309,7 @@ Better hooks: 2 alternative opening lines`, (i) => ({ video: i.video }))] },
   // ---------- building blocks for storyboard apps (not shown in the gallery) ----------
   { id: "scene-shot", name: "Scene", cat: "smart", out: "video", hidden: true, desc: "One storyboard scene.", inputs: [], optional: [["start", "Character"]],
     text: { label: "Shot", placeholder: "" },
-    steps: (i) => i.start ? [nano((x) => `${x.text} Cinematic film still featuring the person from image 1. ${KEEP}`, false), animate((x) => `${x.text}`)] : [animate((x) => `${x.text} Cinematic.`)] },
+    steps: (i) => i.start ? [nano((x) => `${x.text} Cinematic film still featuring the person from image 1. ${KEEP}`), animate((x) => `${x.text}`)] : [animate((x) => `${x.text} Cinematic.`)] },
   { id: "narration", name: "Voiceover", cat: "smart", out: "audio", hidden: true, desc: "Narration track.", inputs: [], text: { label: "Script", placeholder: "" }, steps: [tts] },
 
   // ---------- Camera & Motion ----------
@@ -386,7 +386,7 @@ Better hooks: 2 alternative opening lines`, (i) => ({ video: i.video }))] },
     steps: [nano(`A 2x2 fashion collage of this same person in 4 different stylish outfits (streetwear, formal, casual summer, evening). ${KEEP}`)] },
   { id: "outfit-shot", name: "Outfit Shot", cat: "style", out: "video", desc: "Your avatar models the outfit on video.",
     inputs: [["start", "Your photo"], ["end", "Outfit photo"]],
-    steps: [nano(`Full-body fashion photo of the person from image 1 wearing the outfit from image 2 in a clean studio. ${KEEP}`, false),
+    steps: [nano(`Full-body fashion photo of the person from image 1 wearing the outfit from image 2 in a clean studio. ${KEEP}`),
       animate("Fashion model poses and turns confidently to show the outfit, runway lighting, smooth camera move.")] },
   { id: "glitter-sticker", name: "Glitter Sticker", cat: "style", out: "image", desc: "Holographic glitter sticker of your portrait.", inputs: photo,
     steps: [nano(`Turn this portrait into a die-cut holographic glitter sticker with shimmering foil texture and a white border, on a plain background. ${KEEP}`)] },
@@ -396,12 +396,12 @@ Better hooks: 2 alternative opening lines`, (i) => ({ video: i.video }))] },
   // ---------- Face & Identity ----------
   { id: "recast", name: "Recast", cat: "identity", badge: "PRO", out: "video", desc: "Swap the character in any video with yours, keeping every movement.",
     inputs: [["video", "Original video"], ["start", "New character"]],
-    steps: [(i) => ({ modelId: "wan-animate-replace", params: { video: i.video, start: i.start, resolution: "720p" } })] },
+    steps: [(i) => ({ modelId: "wan-animate-replace", params: { video: i.video, start: i.start, resolution: "580p" } })] },
   { id: "video-face-swap", name: "Video Face Swap", cat: "identity", out: "video", desc: "Put your face on the person in a video.",
     inputs: [["video", "Original video"], ["start", "Your face"]],
-    steps: [(i) => ({ modelId: "wan-animate-replace", params: { video: i.video, start: i.start, resolution: "720p" } })] },
+    steps: [(i) => ({ modelId: "wan-animate-replace", params: { video: i.video, start: i.start, resolution: "580p" } })] },
   { id: "face-swap", name: "Face Swap", cat: "identity", out: "image", desc: "Instant face swap for photos.",
-    inputs: [["start", "Face"], ["end", "Target photo"]], steps: [(i) => ({ modelId: "face-swap-image", params: { start: i.start, end: i.end, resolution: "2K" } })] },
+    inputs: [["start", "Face"], ["end", "Target photo"]], steps: [(i) => ({ modelId: "face-swap-image", params: { start: i.start, end: i.end, resolution: "1K" } })] },
   { id: "character-swap", name: "Character Swap 2.0", cat: "identity", out: "image", desc: "Swap the character in any image.",
     inputs: [["start", "New character"], ["end", "Target image"]],
     steps: [nano("Replace the main character in image 2 with the character from image 1 (face, body, hair, outfit). Keep image 2's pose, scene, lighting and composition exactly.")] },
@@ -434,11 +434,11 @@ Better hooks: 2 alternative opening lines`, (i) => ({ video: i.video }))] },
   { id: "asmr-classic", name: "ASMR Classic", cat: "ads", out: "video", desc: "An ASMR video with gentle whispers and sounds.", inputs: photo,
     steps: [animate("Soft ASMR video: gentle whispering, tapping and crinkling sounds, close-up, calm and intimate, warm light.", 8)] },
   { id: "asmr-host", name: "ASMR Host", cat: "ads", out: "video", desc: "Your photo as a whispering ASMR presenter.", inputs: photo,
-    steps: [nano(`This person as an ASMR host at a cozy studio desk with a professional binaural microphone, soft lighting. ${KEEP}`, false),
+    steps: [nano(`This person as an ASMR host at a cozy studio desk with a professional binaural microphone, soft lighting. ${KEEP}`),
       animate("The host leans toward the microphone and whispers softly to camera, gentle hand movements, calm ASMR sounds.", 8)] },
   { id: "asmr-add-on", name: "ASMR Add-On", cat: "ads", out: "video", desc: "Your character presents your product in an ASMR scene.",
     inputs: [["start", "Character photo"], ["end", "Product photo"]],
-    steps: [nano(`The person from image 1 at a cozy ASMR studio desk holding the product from image 2 near a binaural microphone. ${KEEP} The product keeps its exact label.`, false),
+    steps: [nano(`The person from image 1 at a cozy ASMR studio desk holding the product from image 2 near a binaural microphone. ${KEEP} The product keeps its exact label.`),
       animate("ASMR product showcase: gentle tapping on the product, soft whispers, slow hand movements, satisfying sounds.", 8)] },
 
   // ---------- Video Editing ----------
@@ -463,12 +463,12 @@ Better hooks: 2 alternative opening lines`, (i) => ({ video: i.video }))] },
     ["brick-cube", "Brick Cube", "A toy-block brick figure.", "This person as a toy brick minifigure in a brick-built world.", "The brick figure walks with stop-motion toy animation."],
   ] as const).map(([id, name, desc, look, motion]): App => ({ id, name, cat: "games", out: "video", desc, inputs: photo, steps: restyleThenAnimate(look, motion) })),
   { id: "sketch-to-real", name: "Sketch-to-Real", cat: "games", out: "video", desc: "Hand-drawn sketch → lifelike video.", inputs: [["start", "Your sketch"]],
-    steps: [nano("Turn this sketch into a photorealistic image, keeping the exact composition and design.", false), animate("The scene comes to life with natural realistic motion.")] },
+    steps: [nano("Turn this sketch into a photorealistic image, keeping the exact composition and design."), animate("The scene comes to life with natural realistic motion.")] },
 
 
   { id: "asmr-promo", name: "ASMR Promo", cat: "ads", badge: "NEW", out: "video", desc: "A classic ASMR product promo: your product in an ASMR studio, with your whispered script.",
     inputs: product, text: { label: "Whispered script", placeholder: "Feel how smooth this is…" },
-    steps: [nano("The product from image 1 on an ASMR studio table with soft lighting, a binaural microphone nearby. The product keeps its exact shape, colors and label.", false),
+    steps: [nano("The product from image 1 on an ASMR studio table with soft lighting, a binaural microphone nearby. The product keeps its exact shape, colors and label."),
       animate((i) => `ASMR product promo: slow tactile close-ups, gentle tapping and crinkling, soft whispers saying: "${i.text}".`, 10)] },
   { id: "social-media-icon", name: "Social Media Icon", cat: "trending", out: "video", desc: "Animated Instagram, TikTok and YouTube icons pop around you.", inputs: photo,
     steps: [animate("Stylish social-media promo: animated 3D Instagram, TikTok and YouTube logo icons pop in and orbit around the person, likes and hearts floating up, upbeat.")] },
@@ -533,7 +533,7 @@ export function appStep(app: App, n: number, input: AppInput, prev?: string, not
 export function appCost(app: App, input: AppInput): number {
   const own = stepsOf(app, input).reduce((sum, _, n) => {
     const { m, params } = appStep(app, n, input, "https://prev", "{}");
-    return sum + estimateUsd(m, params.duration > 0 ? params.duration : 10, params.resolution);
+    return sum + estimateUsd(m, params.duration > 0 ? params.duration : 10, params.resolution, params.audio);
   }, 0);
   if (!app.fanout) return own;
   const scenes = Number(input.choice) || 3; // Scenes choice (URL to Video: 3)
