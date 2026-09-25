@@ -164,3 +164,12 @@ Tracker after the build: Apps 92 built · Effects 87 built · Features 62 built 
 - Uploaded inputs sit in Blob under `uploads/` and aren't cleaned up (free tier is 1 GB). Add a cleanup when it matters.
 - Video auto-convert runs in real time (a 30s clip takes ~30s) and needs a browser with MP4 MediaRecorder (Chrome/Edge). Safari/Firefox users would need ffmpeg.wasm.
 - Cost estimates in `models.ts` are approximate. The real cost is recorded per item after completion.
+
+## Next: public multi-user version (decided 2026-09-25, waiting on Kie affiliate approval)
+Build once the owner has the Kie affiliate link (`kie.ai?ref=CODE`):
+- **Google sign-in** replaces the shared password; per-user History / Spending / profile in Blob (`users/<googleId>/…`).
+- **Bring your own Kie key, stored only in the user's browser** (localStorage), sent per request, never saved server-side. The owner handles no keys.
+- **Onboarding wall**: step 1 "Create Kie account" (affiliate link) → step 2 "Paste API key". Every kie.ai link in the app carries the ref code.
+- **Google Drive export** via the user's own Google login (`drive.file` scope) instead of the owner's Make.com scenario.
+- Public GitHub repo + "Deploy to Vercel" button (README uses the affiliate link) so anyone can run their own copy.
+- Auto-delete uploads after 7 days (Blob cost); build on a preview deploy before switching production.
