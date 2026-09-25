@@ -16,6 +16,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col font-sans">
         <Nav />
         {children}
+        <footer className="mt-auto py-4 text-center text-xs text-muted">
+          Powered by <a href="https://zerotouchai.com" target="_blank" rel="noreferrer" className="font-semibold text-fg hover:text-lime">ZeroTouchAI.com</a>
+        </footer>
       </body>
     </html>
   );

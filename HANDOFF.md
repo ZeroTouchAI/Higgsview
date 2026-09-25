@@ -86,6 +86,7 @@ Done and verified locally:
 
 ## Header styling (2026-09-24)
 - `components/Badge.tsx`: Higgsfield's slanted badges. TOP = blue gradient; PRO/TRENDING/CHEAP = pink radial gradient; NEW/FREE = lime. Used in the Nav menus, model picker, Explore cards and Apps cards.
+- Footer on every page: "Powered by ZeroTouchAI.com" (links to https://zerotouchai.com), in `app/layout.tsx`.
 - Top-left: "H" logo + "Higgsview" wordmark (back as of 2026-09-24).
 - Top-right of the Nav, like Higgsfield's Pricing/Enterprise/Login area:
   - Spending pill with the Pricing diamond icon and a pink bubble showing this month's spend
@@ -128,7 +129,6 @@ Tracker after the build: Apps 92 built · Effects 87 built · Features 62 built 
   - Remove Object/Text from Video, Video Background Changer/Remover (Kling Omni)
   - Virality Predictor, Breakdown, Click to Ad, URL to Video, Script to Video, Explainer, Video Translator, Voice Changer (text AI → Gemini TTS → lip-sync)
 - **NOT live-tested** (the test browser wasn't logged in and paid tests need the owner's login): all new models and apps above, including the Gemini text calls. Lip-sync assumes Kie accepts the Gemini TTS audio (wav). If something fails, the History card shows Kie's error; `/api/raw?id=<taskId>` shows the raw task.
-- **Thumbnails for the ~100 new apps aren't generated yet** (needs login; ~$2.50 with FLUX). Cards fall back to a gradient and icon.
 
 ## Upcoming tracker and app thumbnails (added 2026-09-24)
 - **Upcoming** (`/upcoming`, `lib/upcoming.ts`, `app/api/upcoming`): reads Higgsfield's public sitemaps (`/apps/sitemap.xml`, `/effects/sitemap.xml`, `/sitemap-marketing.xml`) and stores `upcoming.json` in Blob. The Nav calls `GET /api/upcoming` on every app open; the server re-scans only if the last check is over 24h old ("Check now" forces it).
@@ -137,7 +137,7 @@ Tracker after the build: Apps 92 built · Effects 87 built · Features 62 built 
   - First scan (baseline, 2026-09-24): to build = 12 apps, 67 effects, 31 features/products.
   - Easy next win: the 67 unbuilt effects are prompt-only. Each Higgsfield effect page has a description to base a prompt on.
 - **Homepage model cards** use `public/thumbs/model-<modelId>.jpg` (640px, 10 files, $0.31).
-- **Thumbnails**: `public/thumbs/<appId>.jpg` (480px JPEG, about 30 KB each, 106 files) shown on Apps cards, the effect picker and the app header. Generated once with FLUX.2 Pro (a few with Grok Image 2 / Nano Banana after Kie "Internal Error"s). Cost $2.63. The generation jobs are hidden in History and counted in Spending.
+- **Thumbnails**: `public/thumbs/<appId>.jpg` (480px JPEG, about 30 KB each, 106 files) shown on Apps cards, the effect picker and the app header. Generated once with FLUX.2 Pro (a few with Grok Image 2 / Nano Banana after Kie "Internal Error"s). Cost $2.63. A second batch of 92 (the Upcoming build: new effects, Mixed Media, AI Assist apps) cost $2.30 (group `thumbs3`; Kie rate-limits bursts, so send ~1 every 4 s). The generation jobs are hidden in History and counted in Spending.
   - Prompts: `scripts/thumb-prompts.ts`. To add a thumb for a new app, generate an image and save it as `public/thumbs/<id>.jpg`; cards fall back to a gradient if the file is missing.
 
 ## Google Drive export (done 2026-09-24)
