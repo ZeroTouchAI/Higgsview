@@ -148,6 +148,14 @@ export async function recordClips(clips: { src: string; start?: number; end?: nu
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const done = new Promise((r) => (rec.onstop = r));
   let k = 0, before = 0; // current clip, seconds recorded before it
+  // Recording runs on the wall clock: whenever playback stops (buffering, or Chrome pausing video in a background
+  // tab), pause the recorder too, or the frozen frames make the file longer than the content (Kie then rejects it).
+  vids.forEach(({ v }) => {
+    v.onwaiting = v.onpause = () => rec.state === "recording" && rec.pause();
+    v.onplaying = () => rec.state === "paused" && rec.resume();
+  });
+  const wake = () => { if (!document.hidden && rec.state === "paused" && vids[k]?.v.paused) vids[k].v.play(); };
+  document.addEventListener("visibilitychange", wake);
   const draw = (v: HTMLVideoElement) => { // letterbox: fit the clip inside the frame
     const s = Math.min(w / v.videoWidth, h / v.videoHeight), dw = v.videoWidth * s, dh = v.videoHeight * s;
     ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h); ctx.drawImage(v, (w - dw) / 2, (h - dh) / 2, dw, dh);
@@ -170,6 +178,7 @@ export async function recordClips(clips: { src: string; start?: number; end?: nu
   music?.play();
   await vids[0].v.play();
   await done;
+  document.removeEventListener("visibilitychange", wake);
   clock.terminate();
   audio.close();
   return new Blob(chunks, { type: "video/mp4" });
@@ -179,9 +188,25 @@ async function resizeVideo(f: File, w: number, h: number, maxSecs: number, progr
   const src = URL.createObjectURL(f);
   try {
     const blob = await recordClips([{ src, start, end: start + maxSecs }], w, h, progress);
+    // Safety net: the recorded file must not run longer than the slice (models reject e.g. >15.5s).
+    if (await blobSeconds(blob) > maxSecs + 0.45) throw new Error("The video didn't convert cleanly (keep this tab open and in front while it prepares). Please try again.");
     return new File([blob], f.name.replace(/\.\w+$/, "") + (start ? `-part2` : "") + "-720p.mp4", { type: "video/mp4" });
   } finally {
     URL.revokeObjectURL(src);
+  }
+}
+
+// Real length of a recorded MP4 (MediaRecorder files have no duration header: seek to the end to find it).
+async function blobSeconds(b: Blob) {
+  const v = Object.assign(document.createElement("video"), { muted: true, preload: "auto", src: URL.createObjectURL(b) });
+  try {
+    await new Promise((ok, fail) => { v.onloadedmetadata = ok; v.onerror = fail; });
+    if (Number.isFinite(v.duration)) return v.duration;
+    v.currentTime = 1e6;
+    await new Promise((ok) => (v.onseeked = ok));
+    return v.duration;
+  } finally {
+    URL.revokeObjectURL(v.src);
   }
 }
 

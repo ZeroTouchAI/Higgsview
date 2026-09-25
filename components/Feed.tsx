@@ -53,7 +53,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
               {i.usd != null && <span className="rounded bg-chip px-1.5 py-0.5">${i.usd.toFixed(2)}</span>}
               <span>{new Date(i.createdAt).toLocaleString()}</span>
               <span className="ml-auto flex gap-1">
-                {onReuse && <button onClick={() => onReuse(i)} className="rounded bg-chip px-2 py-1 hover:text-fg">Reuse</button>}
+                {onReuse && <button onClick={() => onReuse(i)} title="Load this prompt and model back into the panel so you can tweak it before generating again" className="rounded bg-chip px-2 py-1 hover:text-fg">Reuse</button>}
                 {onContinue && i.lastFrame && <button onClick={() => onContinue(i)} title="Start a new clip from this clip's last frame" className="rounded bg-chip px-2 py-1 hover:text-fg">Continue →</button>}
                 {onExtend && i.state === "success" && i.modelId.startsWith("grok") && <button onClick={() => onExtend(i)} title="Add 6-10s to this video" className="rounded bg-chip px-2 py-1 hover:text-fg">Extend +</button>}
                 {i.group && i.group === i.id && <Link href={`/join?group=${i.group}`} className="rounded-md bg-lime px-2 py-1 font-semibold text-black hover:brightness-110">⧉ Join scenes</Link>}

@@ -13,7 +13,7 @@ const KIE: [string, string, string][] = [
 const Icon = ({ d }: { d: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-[18px] shrink-0 text-fg/70"><path d={d} /></svg>
 );
-const VERSION = "1.6"; // bump on EVERY change pushed (also package.json)
+const VERSION = "1.7"; // bump on EVERY change pushed (also package.json)
 const row = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium hover:bg-white/5";
 
 export const initialsOf = (p: Profile) =>
