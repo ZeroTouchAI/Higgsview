@@ -101,7 +101,7 @@ Done and verified locally:
 - `components/AccountMenu.tsx` dropdown (modeled on Higgsfield's):
   - Name and a credits card: 28-dot meter vs the highest balance seen in this browser (`localStorage hv_peak_credits`) and a Top up button (no $/days-left line) (kie.ai/billing)
   - View profile
-  - Kie links: API Keys `/api-key`, Billing `/billing`, Logs `/logs`, Model Market `/market`
+  - Kie links: API Keys `/api-key`, Billing `/billing`, Logs `/logs`
   - Sign Out
 - `/profile`: first/last name, username, email (`profile.json` in Blob via `/api/account`), plus Change password (`/api/account/password`).
 - **Password:** `lib/auth.ts`. The active hash is `auth.json` in Blob if set, else `sha256(APP_PASSWORD)`. `proxy.ts` compares the `hv_auth` cookie to it (60s cache per instance). Changing the password logs out other browsers.

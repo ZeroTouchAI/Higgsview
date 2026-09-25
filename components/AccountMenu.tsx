@@ -9,7 +9,6 @@ const KIE: [string, string, string][] = [
   ["API Keys", "https://kie.ai/api-key", "M15 7a4 4 0 1 1-3.8 5.2L4 19.5V22h3v-2h2v-2h2l1.2-1.2A4 4 0 0 1 15 7Z"],
   ["Billing", "https://kie.ai/billing", "M3 6h18v12H3zM3 10h18"],
   ["Logs", "https://kie.ai/logs", "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"],
-  ["Model Market", "https://kie.ai/market", "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"],
 ];
 const Icon = ({ d }: { d: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-[18px] shrink-0 text-fg/70"><path d={d} /></svg>
