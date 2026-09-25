@@ -1,4 +1,5 @@
 "use client";
+import { kieUrl } from "@/lib/kieLinks";
 import { useEffect, useState } from "react";
 import { useHistory, type Item } from "@/lib/history";
 
@@ -51,7 +52,7 @@ export default function SpendPage() {
     <div className="flex flex-col gap-4 p-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h1 className="text-3xl font-black uppercase">Spending</h1>
-        <a href="https://kie.ai/billing" target="_blank" rel="noreferrer" className="rounded-lg bg-chip px-3 py-1.5 text-sm hover:bg-line">Kie.ai billing ↗</a>
+        <a href={kieUrl("/billing")} target="_blank" rel="noreferrer" className="rounded-lg bg-chip px-3 py-1.5 text-sm hover:bg-line">Kie.ai billing ↗</a>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {[["Kie balance", balance != null ? usd(balance) : "…"], ["Today", usd(since(1))], ["Last 7 days", usd(since(7))], ["Last 30 days", usd(since(30))], ["All time", usd(total)]].map(([k, v]) => (
