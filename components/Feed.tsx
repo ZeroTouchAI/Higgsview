@@ -4,7 +4,8 @@ import { lastFrame, uploadFile } from "@/components/Controls";
 import { loadGoogle, saveToDrive, savedFolder } from "@/lib/google";
 import { refreshHistory, removeItem, type Item } from "@/lib/history";
 import Link from "next/link";
-import { appById, stepsOf } from "@/lib/apps";
+import { appById, appCost, stepsOf } from "@/lib/apps";
+import { byId, estimateUsd } from "@/lib/models";
 
 type Act = ((i: Item) => void) | undefined;
 // Split videos: when a part finishes, grab its last frame and start the next part with it (once per tab;
@@ -99,6 +100,7 @@ function HowItWorks({ kind }: { kind: "video" | "image" | "audio" }) {
 // Download = Higgsfield's pink gradient; Google Drive = solid dark blue.
 const PINK = "text-white [background-image:radial-gradient(39.71%_136.54%_at_51.64%_117.31%,#F920D1_0%,#ED1572_100%)]";
 const BLUE = "bg-[#1f3f99] text-white"; // solid dark blue (owner preference)
+const GOLD = "bg-[linear-gradient(180deg,#F6A43C_0%,#D97A1E_100%)] text-black"; // orange-gold: Regenerate costs money
 const ACTION = "rounded-md px-2 py-1 font-semibold transition hover:brightness-110 disabled:opacity-60";
 
 function CopyButton({ text }: { text: string }) {
@@ -112,10 +114,22 @@ function CopyButton({ text }: { text: string }) {
 }
 
 // Runs the exact same generation again (same model/app, settings and inputs).
+// What running it again will cost: the real charge from last time if there was one, else the estimate.
+function regenCost(item: Item) {
+  if (item.usd) return item.usd;
+  const app = item.app && appById(item.app.id);
+  if (app) return appCost(app, item.app!.input);
+  const m = byId(item.modelId);
+  const p = item.params;
+  return m && p ? estimateUsd(m, p.duration > 0 ? p.duration : 10, p.resolution, p.audio) : 0;
+}
+
 function RegenButton({ item }: { item: Item }) {
   const [busy, setBusy] = useState(false);
+  const cost = regenCost(item);
   async function regen() {
-    if ((item.usd ?? 0) > 2 && !confirm(`This cost $${item.usd!.toFixed(2)} last time. Run it again?`)) return;
+    // Regenerating is a new paid job: always say what it costs and ask first (free jobs skip the question).
+    if (cost > 0 && !confirm(`Regenerate this? It will cost about $${cost.toFixed(2)} on Kie.ai.`)) return;
     setBusy(true);
     const body = item.app ? { appId: item.app.id, input: item.app.input } : { modelId: item.modelId, params: item.params };
     const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify(body) }).then((r) => r.json()).catch((e) => ({ error: String(e) }));
@@ -124,8 +138,9 @@ function RegenButton({ item }: { item: Item }) {
     else await refreshHistory();
   }
   return (
-    <button onClick={regen} disabled={busy} title="Generate again with the same prompt and settings" className="shrink-0 rounded bg-chip px-2 py-1 hover:text-fg disabled:opacity-50">
-      {busy ? "…" : "↻ Regenerate"}
+    <button onClick={regen} disabled={busy} title={`Generate again with the same prompt and settings (≈$${cost.toFixed(2)}, asks before charging)`}
+      className={`shrink-0 ${ACTION} ${GOLD}`}>
+      {busy ? "…" : `↻ Regenerate${cost > 0 ? ` · $${cost.toFixed(2)}` : ""}`}
     </button>
   );
 }
