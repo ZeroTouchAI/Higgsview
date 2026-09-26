@@ -45,6 +45,7 @@ async function migrate() {
   if (res.ok) { try { localStorage.removeItem("hv_history"); } catch {} }
 }
 
+let pollers = 0, poll: ReturnType<typeof setInterval> | undefined;
 export function useHistory(includeHidden = false) {
   const [items, setItems] = useState(cache);
   useEffect(() => {
@@ -52,12 +53,13 @@ export function useHistory(includeHidden = false) {
     migrate().finally(refreshHistory);
     return () => { listeners.delete(setItems); };
   }, []);
-  // While anything renders, poll: the server checks Kie and saves results.
+  // While anything renders, poll: the server checks Kie and saves results. One shared timer however many
+  // components use this hook (the Nav and the page both do).
   const pending = items.some((i) => i.state === "pending");
   useEffect(() => {
     if (!pending) return;
-    const t = setInterval(refreshHistory, 5000);
-    return () => clearInterval(t);
+    if (pollers++ === 0) poll = setInterval(refreshHistory, 5000);
+    return () => { if (--pollers === 0) clearInterval(poll); };
   }, [pending]);
   return includeHidden ? items : items.filter((i) => !i.hidden);
 }

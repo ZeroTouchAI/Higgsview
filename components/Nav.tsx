@@ -6,6 +6,7 @@ import AccountMenu from "@/components/AccountMenu";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { MODELS } from "@/lib/models";
+import { useHistory, type Item } from "@/lib/history";
 
 type Entry = [label: string, href: string, desc: string, badge?: string];
 const models = (mode: string, path: string): Entry[] =>
@@ -98,6 +99,9 @@ export default function Nav() {
   return <Suspense><NavInner /></Suspense>;
 }
 
+const monthStart = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+const spentSince = (items: Item[], from: number) => items.filter((i) => i.createdAt >= from).reduce((s, i) => s + (i.usd ?? 0), 0);
+
 function NavInner() {
   const path = usePathname();
   const sp = useSearchParams();
@@ -105,24 +109,22 @@ function NavInner() {
   const [open, setOpen] = useState<string>();
   const [credits, setCredits] = useState<number | null>(); // Kie balance in credits (null = no key)
   const [fresh, setFresh] = useState(0); // new Higgsfield features waiting in Upcoming
-  const [month, setMonth] = useState<number>(); // this month's spend, shown in the Spending bubble
+  // History (shared cache, polled while jobs run): this month's spend for the Spending bubble, and a signature that
+  // changes when a job starts or finishes, so the Kie balance reloads right then instead of on the next page change.
+  const hist = useHistory(true);
+  const month = spentSince(hist, monthStart());
+  const jobs = `${hist.length}:${hist.filter((i) => i.state === "pending").length}`;
   // Opening Higgsview triggers the daily Higgsfield check (server re-scans if the last one is >24h old).
   useEffect(() => {
     fetch("/api/upcoming").then((r) => r.json()).then((d) => setFresh(Object.values(d.items ?? {}).filter((t) => (t as { status: string }).status === "new").length), () => {});
   }, []);
   useEffect(() => {
-    const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    fetch("/api/history").then((r) => r.json()).then((items: { createdAt: number; usd?: number }[]) => {
-      const sum = (from: number) => items.filter((i) => i.createdAt >= from).reduce((s, i) => s + (i.usd ?? 0), 0);
-      setMonth(sum(start));
-    }, () => {});
-  }, [path]);
-  useEffect(() => {
     const load = () => fetch("/api/credits").then((r) => r.json()).then((d) => setCredits(typeof d.credits === "number" ? d.credits : null), () => {});
     load();
+    const again = setTimeout(load, 5000); // Kie can post the charge a few seconds after the job's status changes
     addEventListener("hv_key", load); // a Kie key was connected, changed or removed
-    return () => removeEventListener("hv_key", load);
-  }, [path]);
+    return () => { clearTimeout(again); removeEventListener("hv_key", load); };
+  }, [path, jobs]);
   // Close the menu after navigating (URL change) or on Escape.
   const url = path + "?" + sp.toString();
   const [lastUrl, setLastUrl] = useState(url);
