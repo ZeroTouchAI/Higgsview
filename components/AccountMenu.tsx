@@ -14,10 +14,11 @@ const KIE: [string, string, string][] = [
 const Icon = ({ d }: { d: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-[18px] shrink-0 text-fg/70"><path d={d} /></svg>
 );
-const VERSION = "2.6"; // bump on EVERY change pushed (also package.json)
-// Help & feedback goes to the owner's inbox, with the account email and version filled in so replies are easy.
+const VERSION = "2.7"; // bump on EVERY change pushed (also package.json)
+// Help & feedback: opens a Gmail draft (everyone signs in with Google) to the owner's inbox, with the account
+// email and version filled in so replies are easy.
 export const helpMail = (email?: string) =>
-  `mailto:info@zerotouchai.com?subject=${encodeURIComponent(`Higgsview help / feedback (v${VERSION})`)}&body=${encodeURIComponent(`Hi,
+  `https://mail.google.com/mail/?view=cm&fs=1&to=info@zerotouchai.com&su=${encodeURIComponent(`Higgsview help / feedback (v${VERSION})`)}&body=${encodeURIComponent(`Hi,
 
 [Describe the problem or idea here. Screenshots help!]
 
@@ -87,7 +88,7 @@ export default function AccountMenu({ credits, onSignOut }: { credits?: number; 
                 <a key={label} href={href} target="_blank" rel="noreferrer" className={row}><Icon d={d} /> {label} <span className="ml-auto text-xs text-muted">↗</span></a>
               ))}
               <div className="my-1 h-px bg-white/10" />
-              <a href={helpMail(profile.email)} className={row}><Icon d="M4 6h16v12H4zM4 7l8 6 8-6" /> Help &amp; feedback</a>
+              <a href={helpMail(profile.email)} target="_blank" rel="noreferrer" className={row}><Icon d="M4 6h16v12H4zM4 7l8 6 8-6" /> Help &amp; feedback</a>
               <div className="my-1 h-px bg-white/10" />
               <button onClick={onSignOut} className={row}><Icon d="M15 12H3m0 0 4-4m-4 4 4 4M13 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" /> Sign Out</button>
             </div>
