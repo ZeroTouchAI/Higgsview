@@ -20,6 +20,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="mt-auto py-4 text-center text-xs text-muted">
           <a href="https://mail.google.com/mail/?view=cm&fs=1&to=info@zerotouchai.com&su=Higgsview%20help%20%2F%20feedback" target="_blank" rel="noreferrer" className="hover:text-fg">Help &amp; feedback</a>
           <span className="mx-2">·</span>
+          <a href="/privacy" className="hover:text-fg">Privacy</a>
+          <span className="mx-2">·</span>
           Powered by <a href="https://zerotouchai.com" target="_blank" rel="noreferrer" className="font-semibold text-fg hover:text-lime">ZeroTouchAI.com</a>
         </footer>
       </body>

@@ -26,7 +26,7 @@ export default function Login() {
       <p className="text-sm text-fg/80">Free AI video &amp; image studio. Every top model, at raw Kie.ai prices: no subscription.</p>
       <div ref={button} className="min-h-11" />
       {err && <p role="alert" className="text-sm text-red-300">{err}</p>}
-      <p className="text-xs text-muted">Sign in with Google to keep your history on every device.</p>
+      <p className="text-xs text-muted">Sign in with Google to keep your history on every device. <a href="/privacy" className="underline hover:text-fg">Privacy Policy</a></p>
     </div>
   );
 }

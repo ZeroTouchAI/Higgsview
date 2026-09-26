@@ -11,7 +11,7 @@ export async function proxy(req: NextRequest) {
     url.hostname = home; url.port = ""; url.protocol = "https";
     return NextResponse.redirect(url, 308);
   }
-  if (/^\/(login|api\/login)$/.test(req.nextUrl.pathname) || verifySession(req.cookies.get("hv_session")?.value)) return NextResponse.next();
+  if (/^\/(login|privacy|api\/login)$/.test(req.nextUrl.pathname) || verifySession(req.cookies.get("hv_session")?.value)) return NextResponse.next();
   if (req.nextUrl.pathname.startsWith("/api/")) return Response.json({ error: "Please sign in again" }, { status: 401 });
   return NextResponse.redirect(new URL("/login", req.url));
 }

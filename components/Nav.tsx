@@ -132,7 +132,7 @@ function NavInner() {
     addEventListener("keydown", esc);
     return () => removeEventListener("keydown", esc);
   }, []);
-  if (path === "/login") return null;
+  if (path === "/login" || path === "/privacy") return null; // public pages: no signed-in chrome
 
   const current = (href: string) => {
     const [p, q] = href.split("?");

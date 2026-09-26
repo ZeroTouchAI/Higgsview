@@ -35,7 +35,7 @@ if (typeof window !== "undefined" && !("hvKeyPatch" in window)) {
 export default function KeyGate({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const [need, setNeed] = useState(false);
-  const open = path === "/login";
+  const open = path === "/login" || path === "/privacy"; // public pages
   useEffect(() => {
     if (open) return;
     fetch("/api/credits").then((r) => r.json()).then((d) => setNeed(typeof d.credits !== "number" && !getKey()), () => {});
