@@ -14,7 +14,7 @@ const KIE: [string, string, string][] = [
 const Icon = ({ d }: { d: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-[18px] shrink-0 text-fg/70"><path d={d} /></svg>
 );
-const VERSION = "2.5"; // bump on EVERY change pushed (also package.json)
+const VERSION = "2.6"; // bump on EVERY change pushed (also package.json)
 // Help & feedback goes to the owner's inbox, with the account email and version filled in so replies are easy.
 export const helpMail = (email?: string) =>
   `mailto:info@zerotouchai.com?subject=${encodeURIComponent(`Higgsview help / feedback (v${VERSION})`)}&body=${encodeURIComponent(`Hi,

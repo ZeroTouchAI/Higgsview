@@ -7,7 +7,10 @@ import { kieUrl } from "@/lib/kieLinks";
 // /api routes as the x-kie-key header and is never saved on the server (see lib/kie.ts).
 const STORE = "hv_kie_key";
 export const getKey = () => { try { return localStorage.getItem(STORE) ?? ""; } catch { return ""; } };
-export const setKey = (k: string) => { try { if (k) localStorage.setItem(STORE, k); else localStorage.removeItem(STORE); } catch {} };
+export const setKey = (k: string) => {
+  try { if (k) localStorage.setItem(STORE, k); else localStorage.removeItem(STORE); } catch {}
+  dispatchEvent(new Event("hv_key")); // Nav reloads the balance
+};
 
 // ponytail: patches window.fetch once so every existing fetch("/api/…") call carries the key; an api() wrapper
 // at each call site would be cleaner if this ever misbehaves. /api/file is skipped: it redirects to Blob storage,

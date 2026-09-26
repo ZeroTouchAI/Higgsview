@@ -118,7 +118,10 @@ function NavInner() {
     }, () => {});
   }, [path]);
   useEffect(() => {
-    fetch("/api/credits").then((r) => r.json()).then((d) => setCredits(typeof d.credits === "number" ? d.credits : null), () => {});
+    const load = () => fetch("/api/credits").then((r) => r.json()).then((d) => setCredits(typeof d.credits === "number" ? d.credits : null), () => {});
+    load();
+    addEventListener("hv_key", load); // a Kie key was connected, changed or removed
+    return () => removeEventListener("hv_key", load);
   }, [path]);
   // Close the menu after navigating (URL change) or on Escape.
   const url = path + "?" + sp.toString();
