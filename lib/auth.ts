@@ -32,7 +32,7 @@ export async function userDir() {
 // The owner (env OWNER_EMAIL) may use the server's own KIE_API_KEY; everyone else brings their own key.
 export const isOwner = (u?: User) => !!u && !!process.env.OWNER_EMAIL && u.email.toLowerCase() === process.env.OWNER_EMAIL.toLowerCase();
 
-export type Profile = { firstName?: string; lastName?: string; username?: string; email?: string; picture?: string };
+export type Profile = { firstName?: string; lastName?: string; email?: string; picture?: string };
 export async function readProfile(): Promise<Profile> {
   const u = await currentUser();
   const [first, ...rest] = (u?.name ?? "").split(" ");

@@ -14,11 +14,20 @@ const KIE: [string, string, string][] = [
 const Icon = ({ d }: { d: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="size-[18px] shrink-0 text-fg/70"><path d={d} /></svg>
 );
-const VERSION = "2.4"; // bump on EVERY change pushed (also package.json)
+const VERSION = "2.5"; // bump on EVERY change pushed (also package.json)
+// Help & feedback goes to the owner's inbox, with the account email and version filled in so replies are easy.
+export const helpMail = (email?: string) =>
+  `mailto:info@zerotouchai.com?subject=${encodeURIComponent(`Higgsview help / feedback (v${VERSION})`)}&body=${encodeURIComponent(`Hi,
+
+[Describe the problem or idea here. Screenshots help!]
+
+---
+Account: ${email ?? "?"}
+Higgsview v${VERSION}`)}`;
 const row = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-medium hover:bg-white/5";
 
 export const initialsOf = (p: Profile) =>
-  ((p.firstName?.[0] ?? "") + (p.lastName?.[0] ?? "")).toUpperCase() || (p.username ?? "HV").slice(0, 2).toUpperCase();
+  ((p.firstName?.[0] ?? "") + (p.lastName?.[0] ?? "")).toUpperCase() || (p.email ?? "HV").slice(0, 2).toUpperCase();
 
 export default function AccountMenu({ credits, onSignOut }: { credits?: number; onSignOut: () => void }) {
   const [open, setOpen] = useState(false);
@@ -30,7 +39,7 @@ export default function AccountMenu({ credits, onSignOut }: { credits?: number; 
     return () => removeEventListener("hv_profile", load);
   }, []);
 
-  const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.username || "Higgsview";
+  const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.email || "Higgsview";
   const DOTS = 28;
   const FULL = 10_000; // a full meter = 10,000 credits ($50)
   const filled = credits != null ? Math.min(DOTS, Math.max(credits > 0 ? 1 : 0, Math.round((credits / FULL) * DOTS))) : 0;
@@ -73,11 +82,12 @@ export default function AccountMenu({ credits, onSignOut }: { credits?: number; 
 
             <div className="mt-2 flex flex-col">
               <Link href="/profile" onClick={() => setOpen(false)} className={row}><Icon d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0" /> View profile</Link>
-              <Link href="/profile#key" onClick={() => setOpen(false)} className={row}><Icon d="M15 7a4 4 0 1 1-3.8 5.2L4 19.5V22h3v-2h2v-2h2l1.2-1.2A4 4 0 0 1 15 7Z" /> Kie.ai API key</Link>
               <p className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wide text-muted uppercase">Kie.ai</p>
               {KIE.map(([label, href, d]) => (
                 <a key={label} href={href} target="_blank" rel="noreferrer" className={row}><Icon d={d} /> {label} <span className="ml-auto text-xs text-muted">↗</span></a>
               ))}
+              <div className="my-1 h-px bg-white/10" />
+              <a href={helpMail(profile.email)} className={row}><Icon d="M4 6h16v12H4zM4 7l8 6 8-6" /> Help &amp; feedback</a>
               <div className="my-1 h-px bg-white/10" />
               <button onClick={onSignOut} className={row}><Icon d="M15 12H3m0 0 4-4m-4 4 4 4M13 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" /> Sign Out</button>
             </div>

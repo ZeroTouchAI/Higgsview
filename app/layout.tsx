@@ -18,6 +18,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Nav />
         <KeyGate>{children}</KeyGate>
         <footer className="mt-auto py-4 text-center text-xs text-muted">
+          <a href="mailto:info@zerotouchai.com?subject=Higgsview%20help%20%2F%20feedback" className="hover:text-fg">Help &amp; feedback</a>
+          <span className="mx-2">·</span>
           Powered by <a href="https://zerotouchai.com" target="_blank" rel="noreferrer" className="font-semibold text-fg hover:text-lime">ZeroTouchAI.com</a>
         </footer>
       </body>

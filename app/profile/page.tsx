@@ -5,7 +5,7 @@ import { initialsOf } from "@/components/AccountMenu";
 import { ConnectKie, getKey, setKey } from "@/components/KeyGate";
 import { canPickFolder, folderLink, pickFolder, savedFolder, setSavedFolder } from "@/lib/google";
 
-const FIELDS: [keyof Profile, string, string][] = [["firstName", "First name", "given-name"], ["lastName", "Last name", "family-name"], ["username", "Username", "username"]];
+const FIELDS: [keyof Profile, string, string][] = [["firstName", "First name", "given-name"], ["lastName", "Last name", "family-name"]];
 const noop = () => () => {};
 const localStorageFolder = () => { const f = savedFolder(); return f ? JSON.stringify(f) : ""; }; // a string, so the snapshot compares stable
 const input = "rounded-xl bg-chip px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-lime";
@@ -41,14 +41,14 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <form onSubmit={save} className="grid gap-3 rounded-2xl bg-panel p-4 sm:grid-cols-3">
+      <form onSubmit={save} className="grid gap-3 rounded-2xl bg-panel p-4 sm:grid-cols-2">
         {FIELDS.map(([k, label, auto]) => (
           <label key={k} className="flex flex-col gap-1 text-xs font-semibold text-muted">
             {label}
             <input className={input} value={p[k] ?? ""} autoComplete={auto} onChange={(e) => { setSaved(""); setP({ ...p, [k]: e.target.value }); }} />
           </label>
         ))}
-        <div className="flex items-center gap-3 sm:col-span-3">
+        <div className="flex items-center gap-3 sm:col-span-2">
           <button className="rounded-xl bg-lime px-5 py-2.5 text-sm font-bold text-black hover:brightness-110">Save profile</button>
           {saved && <span className="text-sm text-muted">{saved}</span>}
         </div>
