@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import DialogHost from "@/components/Dialog";
 import { Inter } from "next/font/google";
 import Nav from "@/components/Nav";
 import KeyGate from "@/components/KeyGate";
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col font-sans">
         <Nav />
         <KeyGate>{children}</KeyGate>
+        <DialogHost />
         <footer className="mt-auto py-4 text-center text-xs text-muted">
           <a href="https://mail.google.com/mail/?view=cm&fs=1&to=info@zerotouchai.com&su=Higgsview%20help%20%2F%20feedback" target="_blank" rel="noreferrer" className="hover:text-fg">Help &amp; feedback</a>
           <span className="mx-2">·</span>

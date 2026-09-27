@@ -1,4 +1,5 @@
 "use client";
+import { ask, askToPay, tell } from "@/components/Dialog";
 import { useEffect, useState } from "react";
 import { lastFrame, uploadFile } from "@/components/Controls";
 import { loadGoogle, saveToDrive, savedFolder } from "@/lib/google";
@@ -64,7 +65,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
                   : <Link href={`/join?group=${i.group}`} className="rounded bg-chip px-2 py-1 hover:text-fg">⧉ Join</Link>)}
                 {i.url && <DownloadButton item={i} />}
                 {i.url && <DriveButton item={i} />}
-                <button onClick={() => confirm("Delete this from history?") && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>
+                <button onClick={async () => (await ask({ title: "Delete from History?", message: "It disappears from your History. Its cost still counts on the Spending page.", confirm: "Delete", tone: "danger" })) && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>
               </span>
             </div>
           </figcaption>
@@ -129,12 +130,12 @@ function RegenButton({ item }: { item: Item }) {
   const cost = regenCost(item);
   async function regen() {
     // Regenerating is a new paid job: always say what it costs and ask first (free jobs skip the question).
-    if (cost > 0 && !confirm(`Regenerate this? It will cost about $${cost.toFixed(2)} on Kie.ai.`)) return;
+    if (cost > 0 && !(await askToPay(cost, "Regenerating this"))) return;
     setBusy(true);
     const body = item.app ? { appId: item.app.id, input: item.app.input } : { modelId: item.modelId, params: item.params };
     const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify(body) }).then((r) => r.json()).catch((e) => ({ error: String(e) }));
     setBusy(false);
-    if (d.error) alert(d.error);
+    if (d.error) await tell("Couldn't regenerate", d.error);
     else await refreshHistory();
   }
   return (

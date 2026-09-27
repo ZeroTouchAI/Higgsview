@@ -1,4 +1,5 @@
 "use client";
+import { askToPay } from "@/components/Dialog";
 import Link from "next/link";
 import { use, useState } from "react";
 import { APPS, appById, appCost, stepsOf, type AppInput, type Tier } from "@/lib/apps";
@@ -32,7 +33,7 @@ export default function AppPage({ params }: PageProps<"/apps/[id]">) {
     && (app.inputs.length > 0 || !app.optional || app.optional.some(([k]) => input[k]) || !!input.text?.trim());
 
   async function run() {
-    if (cost > 2 && !confirm(`This will cost about $${cost.toFixed(2)} on Kie.ai. Continue?`)) return;
+    if (cost > 2 && !(await askToPay(cost))) return;
     setBusy(true); setError("");
     try {
       const d = await fetch("/api/generate", { method: "POST", body: JSON.stringify({ appId: id, input: { ...input, choice } }) }).then((r) => r.json());

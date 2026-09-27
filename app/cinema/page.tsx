@@ -1,4 +1,5 @@
 "use client";
+import { askToPay } from "@/components/Dialog";
 import { useState } from "react";
 import { byId, defaultRes, estimateUsd } from "@/lib/models";
 import { refreshHistory, useHistory } from "@/lib/history";
@@ -63,7 +64,7 @@ export default function CinemaStudio() {
   ].filter(Boolean).join(" ");
 
   async function generate() {
-    if (cost > 2 && !confirm(`This will cost about $${cost.toFixed(2)} on Kie.ai. Continue?`)) return;
+    if (cost > 2 && !(await askToPay(cost))) return;
     setBusy(true); setError("");
     try {
       const params = { prompt: fullPrompt, duration, aspect: aspectV, resolution, audio: true, start };

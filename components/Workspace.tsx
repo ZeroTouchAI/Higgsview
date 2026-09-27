@@ -1,4 +1,5 @@
 "use client";
+import { askToPay } from "@/components/Dialog";
 import { useMemo, useState } from "react";
 import Badge from "@/components/Badge";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -50,7 +51,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
   const label = (k: "start" | "end" | "video", fallback: string) => model.labels?.[k] ?? fallback;
 
   async function generate() {
-    if (cost > 2 && !confirm(`This will cost about $${cost.toFixed(2)} on Kie.ai. Continue?`)) return;
+    if (cost > 2 && !(await askToPay(cost))) return;
     setError("");
     setBusy(true);
     const fullPrompt = [prompt.trim(), preset.prompt].filter(Boolean).join(" ");
