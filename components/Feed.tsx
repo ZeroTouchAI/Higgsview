@@ -23,18 +23,30 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
   useEffect(() => {
     for (const i of items) if (i.next && i.state === "success" && i.url && !continued.has(i.id)) { continued.add(i.id); continuePart(i); }
   }, [items]);
+  const [viewing, setViewing] = useState<Item>();
   if (!items.length) return <HowItWorks kind={kind} />;
   return (
+    <>
+    {viewing && <Viewer item={viewing} onClose={() => setViewing(undefined)} />}
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
       {items.map((i) => (
-        <figure key={i.id} className="overflow-hidden rounded-xl bg-panel">
-          <div className="relative grid aspect-video place-items-center bg-black">
+        <figure key={i.id} className="flex flex-col overflow-hidden rounded-xl bg-panel">
+          <div className="relative grid aspect-video place-items-center overflow-hidden bg-black">
             {i.state === "success" && i.kind === "text" ? (
               <div className="absolute inset-0 overflow-y-auto p-3 text-left text-[13px] leading-relaxed whitespace-pre-wrap text-fg/90">{i.text || "(no answer)"}</div>
             ) : i.state === "success" && i.url && !unavailable(i) ? (
               i.kind === "audio" ? <audio src={i.url} controls className="w-11/12" onError={() => markIfGone(i)} />
-              : i.kind === "video" ? <video src={i.url} controls loop playsInline className="size-full object-contain" onError={() => markIfGone(i)} />
-                : <RetryImg src={i.url} alt={i.prompt} onFail={() => markIfGone(i)} />
+              : (
+                <button onClick={() => setViewing(i)} aria-label="Open full view" className="group relative size-full cursor-zoom-in">
+                  {i.kind === "video"
+                    ? <video src={`${i.url}#t=0.1`} muted playsInline preload="metadata" className="size-full object-cover object-[50%_30%]" onError={() => markIfGone(i)}
+                        onMouseEnter={(e) => e.currentTarget.play().catch(() => {})} onMouseLeave={(e) => e.currentTarget.pause()} />
+                    : <RetryImg src={i.url} alt={i.prompt} onFail={() => markIfGone(i)} />}
+                  <span className="absolute right-2 bottom-2 rounded-md bg-black/60 px-2 py-1 text-[11px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                    {i.kind === "video" ? "▶ Play" : "⤢ View"}
+                  </span>
+                </button>
+              )
             ) : i.state === "success" && i.driveLink ? (
               <div className="flex flex-col items-center gap-3 p-4 text-center text-sm text-muted">
                 <span className="text-3xl">▲</span>
@@ -51,13 +63,13 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
               <p className="p-4 text-center text-sm text-red-300">{i.error}</p>
             )}
           </div>
-          <figcaption className="flex flex-col gap-2 p-3 text-xs">
+          <figcaption className="flex flex-1 flex-col gap-2 p-3 text-xs">
             <div className="flex items-start gap-2">
               <p className="line-clamp-2 flex-1 text-fg/80" title={i.prompt}>{i.prompt}</p>
               <CopyButton text={i.kind === "text" && i.text ? i.text : i.prompt} />
               {(i.params || i.app) && <RegenButton item={i} />}
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-muted">
+            <div className="mt-auto flex flex-wrap items-center gap-2 text-muted">
               <span className="rounded bg-chip px-1.5 py-0.5">{i.modelName}</span>
               {i.usd != null && <span className="rounded bg-chip px-1.5 py-0.5">${i.usd.toFixed(2)}</span>}
               <span>{new Date(i.createdAt).toLocaleString()}</span>
@@ -78,6 +90,29 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
           </figcaption>
         </figure>
       ))}
+    </div>
+    </>
+  );
+}
+
+// Full view of a result at its real shape (the History cards crop previews so every card is the same size).
+function Viewer({ item, onClose }: { item: Item; onClose: () => void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    addEventListener("keydown", key);
+    return () => removeEventListener("keydown", key);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/85 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex max-h-full max-w-full flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+        {item.kind === "video"
+          ? <video src={item.url} controls autoPlay loop playsInline className="max-h-[82vh] max-w-[92vw] rounded-xl bg-black" />
+          : <img src={item.url} alt={item.prompt} className="max-h-[82vh] max-w-[92vw] rounded-xl object-contain" />}
+        <div className="flex max-w-[92vw] items-center gap-3 text-sm">
+          <p className="line-clamp-2 text-fg/80">{item.prompt}</p>
+          <button onClick={onClose} className="shrink-0 rounded-xl bg-chip px-4 py-2 font-semibold hover:bg-line">Close</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -176,7 +211,7 @@ function DownloadButton({ item }: { item: Item }) {
 // Free providers render on request and can time out the first load; remount to retry.
 function RetryImg({ src, alt, onFail }: { src: string; alt: string; onFail: () => void }) {
   const [tries, setTries] = useState(0);
-  return <img key={tries} src={src} alt={alt} className="size-full object-contain"
+  return <img key={tries} src={src} alt={alt} className="size-full object-cover object-[50%_30%]"
     onError={() => { onFail(); if (tries < 5) setTimeout(() => setTries(tries + 1), 4000); }} />;
 }
 
