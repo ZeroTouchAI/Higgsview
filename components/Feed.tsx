@@ -39,7 +39,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
               : (
                 <button onClick={() => setViewing(i)} aria-label="Open full view" className="group relative size-full cursor-zoom-in">
                   {i.kind === "video"
-                    ? <video src={`${i.url}#t=0.1`} muted playsInline preload="metadata" className="size-full object-cover object-[50%_30%]" onError={() => markIfGone(i)}
+                    ? <video src={`${i.url}#t=0.1`} muted playsInline preload="metadata" className="size-full object-contain" onError={() => markIfGone(i)}
                         onMouseEnter={(e) => e.currentTarget.play().catch(() => {})} onMouseLeave={(e) => e.currentTarget.pause()} />
                     : <RetryImg src={i.url} alt={i.prompt} onFail={() => markIfGone(i)} />}
                   <span className="absolute right-2 bottom-2 rounded-md bg-black/60 px-2 py-1 text-[11px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
@@ -211,7 +211,7 @@ function DownloadButton({ item }: { item: Item }) {
 // Free providers render on request and can time out the first load; remount to retry.
 function RetryImg({ src, alt, onFail }: { src: string; alt: string; onFail: () => void }) {
   const [tries, setTries] = useState(0);
-  return <img key={tries} src={src} alt={alt} className="size-full object-cover object-[50%_30%]"
+  return <img key={tries} src={src} alt={alt} className="size-full object-contain"
     onError={() => { onFail(); if (tries < 5) setTimeout(() => setTries(tries + 1), 4000); }} />;
 }
 

@@ -112,7 +112,7 @@ function Join() {
           return (
             <button key={v.id} onClick={() => toggle(v.id)} className={`overflow-hidden rounded-xl bg-panel text-left ring-lime ${n >= 0 ? "ring-2" : "hover:ring-1"}`}>
               <div className="relative aspect-video bg-black">
-                <video src={v.url} muted preload="metadata" className="size-full object-cover object-[50%_30%]" />
+                <video src={v.url} muted preload="metadata" className="size-full object-contain" />
                 {n >= 0 && <span className="absolute top-2 left-2 grid size-6 place-items-center rounded-full bg-lime text-xs font-black text-black">{n + 1}</span>}
               </div>
               <p className="line-clamp-1 p-2 text-xs text-muted">{v.modelName} · {v.prompt}</p>
