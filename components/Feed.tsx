@@ -37,7 +37,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
             ) : i.state === "success" && i.url && !unavailable(i) ? (
               i.kind === "audio" ? <audio src={i.url} controls className="w-11/12" onError={() => markIfGone(i)} />
               : (
-                <button onClick={() => setViewing(i)} aria-label="Open full view" className="group relative size-full cursor-zoom-in">
+                <button onClick={() => setViewing(i)} aria-label="Open full view" className="group absolute inset-0 cursor-zoom-in">
                   {i.kind === "video"
                     ? <video src={`${i.url}#t=0.1`} muted playsInline preload="metadata" className="size-full object-contain" onError={() => markIfGone(i)}
                         onMouseEnter={(e) => e.currentTarget.play().catch(() => {})} onMouseLeave={(e) => e.currentTarget.pause()} />
