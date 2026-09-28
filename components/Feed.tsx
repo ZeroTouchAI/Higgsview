@@ -121,7 +121,7 @@ function HowItWorks({ kind }: { kind: "video" | "image" | "audio" }) {
   const steps = kind === "audio"
     ? [["Pick a tool", "Voiceover, music or sound effects"], ["Describe it", "Type the words, or describe the sound or song"], ["Get audio", "Play, download or export to Drive"]]
     : kind === "video"
-    ? [["Add image", "Upload a start frame — or just write a prompt"], ["Choose preset", "Pick a camera move or commercial look"], ["Get video", "Click generate to create your final video"]]
+    ? [["Add images", "Add images (your logo, product, people) — or just write a prompt"], ["Choose preset", "Pick a camera move or commercial look"], ["Get video", "Click generate to create your final video"]]
     : [["Describe", "Write what you want to see"], ["Add reference", "Optionally upload a product or style image"], ["Get image", "Click generate"]];
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 py-10">

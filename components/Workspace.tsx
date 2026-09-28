@@ -39,25 +39,41 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
   const resolution = model.resolutions.includes(res) ? res : defaultRes(model);
   const [audio, setAudio] = useState(true);
   const [media, setMedia] = useState<Media>({ start: sp.get("start") ?? undefined });
-  const [refs, setRefs] = useState<string[]>([]);
+  // Higgsfield-style "Images" area (Create video + Image pages): one list of images, used as references when the
+  // model supports them, otherwise image 1 = first frame and image 2 = last frame. Plus reference videos (Seedance, MiniMax).
+  const [images, setImages] = useState<string[]>(sp.get("start") ? [sp.get("start")!] : []);
+  const [refVids, setRefVids] = useState<{ url: string; secs: number }[]>([]);
+  const [asFrame, setAsFrame] = useState(!!sp.get("start")); // "Start the video from image 1" (exact first frame)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [picker, setPicker] = useState(false);
   const [presets, setPresets] = useState(sp.get("presets") === "1");
   const items = useHistory();
 
+  const unified = (model.mode === "create" || model.mode === "image") && (model.frames !== "none" || !!model.refs);
+  const maxImages = model.refs ?? (model.frames === "start-end" ? 2 : model.frames === "start" ? 1 : 0);
+  // Frames mode: models without references, or the "start from image 1" option (frames and references can't mix).
+  const canFrame = model.frames !== "none" && model.mode === "create";
+  const framesMode = !model.refs || (canFrame && asFrame && images.length <= (model.frames === "start-end" ? 2 : 1) && !refVids.length);
+  const vidSecs = refVids.reduce((t, v) => t + v.secs, 0);
   const seconds = duration > 0 ? duration : media.videoSecs ?? 10;
-  const cost = estimateUsd(model, seconds, resolution, audio && !!model.audio);
+  // Reference videos are billed too (Seedance/MiniMax count their seconds): included so the estimate isn't low.
+  const cost = estimateUsd(model, seconds, resolution, audio && !!model.audio) + (vidSecs && !framesMode ? estimateUsd(model, vidSecs, resolution) : 0);
   const label = (k: "start" | "end" | "video", fallback: string) => model.labels?.[k] ?? fallback;
 
   async function generate() {
     if (cost > 2 && !(await askToPay(cost))) return;
     setError("");
     setBusy(true);
-    const fullPrompt = [prompt.trim(), preset.prompt].filter(Boolean).join(" ");
+    // With reference images, tell the video model to keep them faithful (brand colors and logos were drifting).
+    const faithful = unified && !framesMode && images.length && model.mode === "create"
+      ? "Use the reference images faithfully: keep their exact colors, logos, text, products and people." : "";
+    const fullPrompt = [prompt.trim(), preset.prompt, faithful].filter(Boolean).join(" ");
+    const pics = unified ? (framesMode ? { start: images[0], end: model.frames === "start-end" ? images[1] : undefined } : { refs: images, refVideos: refVids.map((v) => v.url) })
+      : { start: media.start, end: media.end, refs: model.refs ? images : undefined }; // Edit / Motion / Genjutsu tiles
     const params = {
       prompt: fullPrompt, duration, aspect, resolution, audio: audio && !!model.audio,
-      start: media.start, end: media.end, video: media.video, refs, taskId: extendFrom?.taskId,
+      ...pics, video: media.video, taskId: extendFrom?.taskId,
     };
     try {
       // A long video split into 2 parts: part 1 now; part 2 starts when it finishes, using part 1's last frame
@@ -75,7 +91,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
   }
 
   const missing = [
-    ...(model.needs ?? []).filter((n) => !media[n]).map((n) => label(n, n === "video" ? "Input video" : n === "end" ? "End frame" : "Start frame")),
+    ...(model.needs ?? []).filter((n) => (unified && n !== "video" ? !images[n === "end" ? 1 : 0] : !media[n])).map((n) => label(n, n === "video" ? "Input video" : n === "end" ? "End frame" : "Start frame")),
     ...(!prompt.trim() && !model.promptOptional ? ["Prompt"] : []),
   ];
   const ready = !missing.length;
@@ -114,7 +130,7 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
         {!extendFrom && <p className="px-1 text-xs text-muted">{model.desc}</p>}
 
         {/* Inputs */}
-        {(model.frames !== "none" || model.needs?.includes("video")) && (
+        {((model.frames !== "none" && !unified) || model.needs?.includes("video")) && (
           <div className="grid grid-cols-2 gap-2">
             {model.needs?.includes("video") && (
               <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs} minSide={model.videoMinSide} split={model.videoSplit}
@@ -124,31 +140,24 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
                   if (ratio && !/auto|adaptive/.test(model.aspects[0])) setAspect(closestAspect(model.aspects, ratio));
                 }} />
             )}
-            {model.frames !== "none" && (
+            {model.frames !== "none" && !unified && (
               <Upload label={label("start", kind === "image" ? "Reference" : "Start frame")} accept="image/*"
                 value={media.start} onChange={(start) => setMedia((m) => ({ ...m, start }))} optional={!model.needs?.includes("start")} />
             )}
-            {model.frames === "start-end" && (
+            {model.frames === "start-end" && !unified && (
               <Upload label={label("end", "End frame")} accept="image/*" value={media.end} onChange={(end) => setMedia((m) => ({ ...m, end }))} optional={!model.needs?.includes("end")} />
             )}
           </div>
         )}
-        {!!model.refs && (
-          <div className="flex flex-col gap-1">
-            <span className="px-1 text-xs font-semibold text-muted">Reference images ({refs.length}/{model.refs}) · refer to them as “image 1”, “image 2”…</span>
-            <div className="grid grid-cols-4 gap-2">
-              {refs.map((r, i) => (
-                <div key={r} className="relative aspect-square overflow-hidden rounded-lg bg-chip">
-                  <img src={r} alt={`Reference ${i + 1}`} className="size-full object-cover" />
-                  <span className="absolute bottom-0.5 left-1 text-[10px] font-bold drop-shadow">{i + 1}</span>
-                  <button onClick={() => setRefs(refs.filter((x) => x !== r))} aria-label={`Remove image ${i + 1}`} className="absolute top-0.5 right-0.5 rounded bg-black/70 px-1 text-[10px]">✕</button>
-                </div>
-              ))}
-              {refs.length < model.refs && (
-                <div className="aspect-square"><Upload label="Add" accept="image/*" compact onChange={(u) => u && setRefs((r) => [...r, u])} /></div>
-              )}
-            </div>
-          </div>
+        {(unified || !!model.refs) && (
+          <ImagesArea images={images} setImages={setImages} max={unified ? maxImages : model.refs!}
+            videos={!framesMode && model.refVideos ? refVids : undefined} setVideos={setRefVids} maxVideos={model.refVideos ?? 0}
+            hint={!unified ? "Reference images · refer to them as “image 1”, “image 2”…"
+              : framesMode && !model.refs ? (model.frames === "start-end" ? "Image 1 = first frame, image 2 = last frame" : "Image 1 = the first frame the video starts from")
+              : framesMode ? "Image 1 is the exact first frame" + (model.frames === "start-end" ? ", image 2 the last frame" : "")
+              : kind === "image" ? "Refer to them in your prompt as “image 1”, “image 2”… (edit, combine, restyle)"
+              : "Used as references: say “image 1”, “image 2”… in your prompt. Their colors, logos and people are kept."}
+            frameToggle={unified && !!model.refs && canFrame ? { on: asFrame, set: setAsFrame } : undefined} />
         )}
 
         {/* Prompt */}
@@ -226,6 +235,49 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
       </main>
 
       {presets && <PresetModal onPick={(p) => { setPreset(p); setPresets(false); }} onClose={() => setPresets(false)} />}
+    </div>
+  );
+}
+
+// One place to add images (and reference videos): any number up to the model's limit, numbered for the prompt.
+function ImagesArea({ images, setImages, max, videos, setVideos, maxVideos, hint, frameToggle }: {
+  images: string[]; setImages: (f: (x: string[]) => string[]) => void; max: number;
+  videos?: { url: string; secs: number }[]; setVideos: (f: (x: { url: string; secs: number }[]) => { url: string; secs: number }[]) => void; maxVideos: number;
+  hint: string; frameToggle?: { on: boolean; set: (b: boolean) => void };
+}) {
+  const shown = images.slice(0, max);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="px-1 text-xs font-semibold text-muted">Images ({shown.length}/{max}){videos && ` · Videos (${videos.length}/${maxVideos})`}</span>
+      <div className="grid grid-cols-4 gap-2">
+        {shown.map((r, i) => (
+          <div key={r} className="relative aspect-square overflow-hidden rounded-lg bg-chip">
+            <img src={r} alt={`Image ${i + 1}`} className="size-full object-cover" />
+            <span className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 text-[10px] font-bold">{i + 1}</span>
+            <button onClick={() => setImages((x) => x.filter((y) => y !== r))} aria-label={`Remove image ${i + 1}`} className="absolute top-0.5 right-0.5 rounded bg-black/70 px-1 text-[10px]">✕</button>
+          </div>
+        ))}
+        {videos?.map((v, i) => (
+          <div key={v.url} className="relative aspect-square overflow-hidden rounded-lg bg-chip">
+            <video src={v.url} muted className="size-full object-cover" />
+            <span className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 text-[10px] font-bold">▶ {i + 1}</span>
+            <button onClick={() => setVideos((x) => x.filter((y) => y.url !== v.url))} aria-label={`Remove video ${i + 1}`} className="absolute top-0.5 right-0.5 rounded bg-black/70 px-1 text-[10px]">✕</button>
+          </div>
+        ))}
+        {shown.length < max && (
+          <div className="aspect-square"><Upload label="+ Image" accept="image/*" compact onChange={(u) => u && setImages((x) => [...x, u])} /></div>
+        )}
+        {videos && videos.length < maxVideos && (
+          <div className="aspect-square"><Upload label="+ Video" accept="video/*" compact maxSecs={15.5} onChange={(u, secs) => u && setVideos((x) => [...x, { url: u, secs: secs ?? 5 }])} /></div>
+        )}
+      </div>
+      <p className="px-1 text-[11px] text-muted">{hint}</p>
+      {frameToggle && (
+        <label className="flex items-center gap-2 px-1 text-[11px] text-muted">
+          <input type="checkbox" checked={frameToggle.on} onChange={(e) => frameToggle.set(e.target.checked)} className="accent-lime" />
+          Start the video exactly from image 1 (first-frame mode, no references)
+        </label>
+      )}
     </div>
   );
 }

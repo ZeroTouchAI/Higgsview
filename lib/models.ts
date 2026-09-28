@@ -15,7 +15,8 @@ export type Params = {
   end?: string; // end frame URL
   video?: string; // input video URL (edit / motion control / swap)
   taskId?: string; // Kie task being extended
-  refs?: string[]; // extra reference images (Genjutsu)
+  refs?: string[]; // reference images ("image 1", "image 2"… in the prompt)
+  refVideos?: string[]; // reference videos (motion / style / camera to follow)
   audioUrl?: string; // input audio (lip-sync)
   voice?: string; // ElevenLabs voice id
 };
@@ -36,7 +37,8 @@ export type Model = {
   labels?: Partial<Record<"start" | "end" | "video", string>>; // upload tile labels
   promptOptional?: boolean;
   output?: "image" | "audio" | "text"; // model whose result isn't a video
-  refs?: number; // max extra reference images
+  refs?: number; // max reference images (the Images area uses them as references, not as first/last frames)
+  refVideos?: number; // max reference videos (Seedance, MiniMax H3)
   resLabel?: string; // label for the resolutions chip (e.g. "Voice", "Quality")
   defaultRes?: string; // default chip value (otherwise the last = best)
   videoMaxPixels?: number; // input video must be at most this many pixels (w×h)
@@ -62,13 +64,15 @@ const seedance = (model: string, extra: Partial<Model>): Model => ({
   aspects: ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
   resolutions: ["480p", "720p"],
   audio: true,
-  frames: "start-end",
+  frames: "start-end", refs: 9, refVideos: 3,
   build: (p) => ({
     model,
     input: {
       prompt: p.prompt,
-      first_frame_url: p.start,
-      last_frame_url: p.start && p.end, // Kie rejects a last frame without a first frame
+      // Multimodal reference mode and first/last-frame mode can't be combined (Kie docs).
+      ...(hasRefs(p)
+        ? { reference_image_urls: p.refs?.length ? p.refs : undefined, reference_video_urls: p.refVideos?.length ? p.refVideos : undefined }
+        : { first_frame_url: p.start, last_frame_url: p.start && p.end }), // Kie rejects a last frame without a first frame
       return_last_frame: true, // enables "Continue" (chain clips into longer videos)
       generate_audio: p.audio,
       resolution: p.resolution,
@@ -99,6 +103,9 @@ function genjutsu(kind: string, name: string, desc: string, instruction: string)
     }),
   };
 }
+
+const imgs = (p: Params) => [p.start, p.end, ...(p.refs ?? [])].filter(Boolean) as string[];
+const hasRefs = (p: Params) => !!(p.refs?.length || p.refVideos?.length);
 
 export const MODELS: Model[] = [
   // ---------- VIDEO: Create ----------
@@ -167,9 +174,11 @@ export const MODELS: Model[] = [
     id: "wan-2-7", name: "Wan 2.7", mode: "create", tier: "budget", usdPerSec: { "720p": 0.08, "1080p": 0.12 }, defaultRes: "720p",
     desc: "The perfect balance of generation speed and visual richness.",
     durations: [5, 10, 15], aspects: ["16:9", "9:16", "1:1", "4:3", "3:4"], resolutions: ["720p", "1080p"],
-    frames: "start-end",
+    frames: "start-end", refs: 5,
     build: (p) =>
-      p.start
+      p.refs?.length
+        ? { model: "wan/2-7-r2v", input: { prompt: p.prompt, reference_image: p.refs, resolution: p.resolution, duration: p.duration } }
+        : p.start
         ? { model: "wan/2-7-image-to-video", input: { prompt: p.prompt, first_frame_url: p.start, last_frame_url: p.end, resolution: p.resolution, duration: p.duration } }
         : { model: "wan/2-7-text-to-video", input: { prompt: p.prompt, ratio: p.aspect, resolution: p.resolution, duration: p.duration } },
   },
@@ -200,14 +209,16 @@ export const MODELS: Model[] = [
   {
     id: "grok-imagine-1-5", name: "Grok Imagine 1.5", badge: "NEW", mode: "create", tier: "budget", usdPerSec: { "480p": 0.012, "720p": 0.0225, "1080p": 0.04 },
     desc: "One still image or a prompt into a cinematic clip with camera moves, physics and sound. Up to 15s.",
-    durations: [6, 8, 10, 15], aspects: ["16:9", "9:16", "1:1", "3:2", "2:3"], resolutions: ["480p", "720p", "1080p"], defaultRes: "720p", frames: "start",
-    build: (p) => ({ model: "generated/grok-imagine-video-1.5-preview", input: { prompt: p.prompt, ...(p.start ? { image_urls: [p.start] } : { aspect_ratio: p.aspect }), resolution: p.resolution, duration: p.duration } }),
+    durations: [6, 8, 10, 15], aspects: ["16:9", "9:16", "1:1", "3:2", "2:3"], resolutions: ["480p", "720p", "1080p"], defaultRes: "720p", frames: "start", refs: 7,
+    build: (p) => ({ model: "grok-imagine-video-1-5-preview", input: { prompt: p.prompt, ...(imgs(p).length ? { image_urls: imgs(p) } : {}), aspect_ratio: imgs(p).length === 1 ? undefined : p.aspect, resolution: p.resolution, duration: p.duration } }),
   },
   {
     id: "minimax-h3", name: "MiniMax H3", badge: "NEW", mode: "create", tier: "standard", usdPerSec: { "768P": 0.04, "2K": 0.065 },
     desc: "2K video with native stereo sound, from text or start/end keyframes. 4–15 seconds.",
-    durations: [6, 10, 15], aspects: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"], resolutions: ["768P", "2K"], defaultRes: "768P", frames: "start-end",
-    build: (p) => p.start || p.end
+    durations: [6, 10, 15], aspects: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"], resolutions: ["768P", "2K"], defaultRes: "768P", frames: "start-end", refs: 9, refVideos: 3,
+    build: (p) => hasRefs(p)
+      ? { model: "minimax-h3/reference-to-video", input: { prompt: p.prompt, reference_image_urls: p.refs?.length ? p.refs : undefined, reference_video_urls: p.refVideos?.length ? p.refVideos : undefined, aspect_ratio: p.aspect, duration: p.duration, resolution: p.resolution } }
+      : p.start || p.end
       ? { model: "minimax-h3/image-to-video", input: { prompt: p.prompt, first_frame_url: p.start, last_frame_url: p.end, duration: String(p.duration), resolution: p.resolution } }
       : { model: "minimax-h3/text-to-video", input: { prompt: p.prompt, aspect_ratio: p.aspect, duration: String(p.duration), resolution: p.resolution } },
   },
@@ -402,44 +413,44 @@ export const MODELS: Model[] = [
     id: "nano-banana-2", name: "Nano Banana 2", badge: "TOP", mode: "image", tier: "standard", usdFlat: { "1K": 0.04, "2K": 0.06, "4K": 0.09 }, defaultRes: "1K",
     desc: "Google's image model. Best for product shots and edits with references.",
     durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "4:5", "21:9"], resolutions: ["1K", "2K", "4K"],
-    frames: "start",
+    frames: "start", refs: 14,
     build: (p) => ({
       model: "nano-banana-2",
-      input: { prompt: p.prompt, image_input: [p.start, p.end, ...(p.refs ?? [])].filter(Boolean), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" },
+      input: { prompt: p.prompt, image_input: imgs(p), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" },
     }),
   },
   {
     id: "nano-banana-pro", name: "Nano Banana Pro", badge: "TOP", mode: "image", tier: "premium", usdFlat: { "1K": 0.09, "2K": 0.09, "4K": 0.12 },
     desc: "Google's best 4K image model: text rendering, product shots, precise edits.",
     durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "4:5", "21:9", "auto"], resolutions: ["1K", "2K", "4K"], defaultRes: "2K",
-    frames: "start",
-    build: (p) => ({ model: "nano-banana-pro", input: { prompt: p.prompt, image_input: [p.start, p.end, ...(p.refs ?? [])].filter(Boolean), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" } }),
+    frames: "start", refs: 8,
+    build: (p) => ({ model: "nano-banana-pro", input: { prompt: p.prompt, image_input: imgs(p), aspect_ratio: p.aspect, resolution: p.resolution, output_format: "png" } }),
   },
   {
     id: "gpt-image-2", name: "GPT Image 2", mode: "image", tier: "standard", usdFlat: { "1K": 0.03, "2K": 0.05, "4K": 0.08 },
     desc: "OpenAI image model: near-perfect text, posters, ads, logos.",
     durations: [], aspects: ["1:1", "16:9", "9:16", "3:2", "2:3", "4:5", "21:9", "auto"], resolutions: ["1K", "2K", "4K"], defaultRes: "1K",
-    frames: "start",
-    build: (p) => p.start
-      ? { model: "gpt-image-2-image-to-image", input: { prompt: p.prompt, input_urls: [p.start], aspect_ratio: p.aspect, resolution: p.resolution } }
+    frames: "start", refs: 16,
+    build: (p) => imgs(p).length
+      ? { model: "gpt-image-2-image-to-image", input: { prompt: p.prompt, input_urls: imgs(p), aspect_ratio: p.aspect, resolution: p.resolution } }
       : { model: "gpt-image-2-text-to-image", input: { prompt: p.prompt, aspect_ratio: p.aspect, resolution: p.resolution } },
   },
   {
     id: "seedream-5-pro", name: "Seedream 5.0 Pro", mode: "image", tier: "standard", usdFlat: { basic: 0.035, high: 0.07 }, defaultRes: "basic",
     desc: "ByteDance image model with strong visual reasoning and consistency.",
     durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9"], resolutions: ["basic", "high"], resLabel: "Quality",
-    frames: "start",
-    build: (p) => p.start
-      ? { model: "seedream/5-pro-image-to-image", input: { prompt: p.prompt, image_urls: [p.start], aspect_ratio: p.aspect, quality: p.resolution } }
+    frames: "start", refs: 10,
+    build: (p) => imgs(p).length
+      ? { model: "seedream/5-pro-image-to-image", input: { prompt: p.prompt, image_urls: imgs(p), aspect_ratio: p.aspect, quality: p.resolution } }
       : { model: "seedream/5-pro-text-to-image", input: { prompt: p.prompt, aspect_ratio: p.aspect, quality: p.resolution } },
   },
   {
     id: "flux-2-pro", name: "FLUX.2 Pro", mode: "image", tier: "budget", usdFlat: { "1K": 0.025, "2K": 0.035 }, defaultRes: "1K",
     desc: "Fast, detailed photorealism from Black Forest Labs.",
     durations: [], aspects: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"], resolutions: ["1K", "2K"],
-    frames: "start",
-    build: (p) => p.start
-      ? { model: "flux-2/pro-image-to-image", input: { prompt: p.prompt, input_urls: [p.start], aspect_ratio: p.aspect, resolution: p.resolution } }
+    frames: "start", refs: 8,
+    build: (p) => imgs(p).length
+      ? { model: "flux-2/pro-image-to-image", input: { prompt: p.prompt, input_urls: imgs(p), aspect_ratio: p.aspect, resolution: p.resolution } }
       : { model: "flux-2/pro-text-to-image", input: { prompt: p.prompt, aspect_ratio: p.aspect, resolution: p.resolution } },
   },
   {
