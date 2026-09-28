@@ -2,10 +2,13 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { refreshHistory, useHistory, type Item } from "@/lib/history";
-import { recordClips, uploadFile } from "@/components/Controls";
+import { recordClips } from "@/components/Controls";
+import { driveToken, saveToDrive } from "@/lib/google";
+import { tell } from "@/components/Dialog";
 
 // Join clips: stitch several videos (script scenes, long-video parts, anything in History) into one MP4 in the
-// browser, optionally with a soundtrack (e.g. the generated voiceover), and save it to History permanently.
+// browser, optionally with a soundtrack (e.g. the generated voiceover), and save it straight to the user's own
+// Google Drive (nothing is stored on our server). History keeps a card that opens it in Drive.
 const stamp = () => ({ id: crypto.randomUUID(), createdAt: Date.now() }); // outside the component (purity lint)
 // Fresh copy as a local blob: the History cards already loaded these files without CORS, and Chrome reuses
 // that cached copy (no Access-Control header), which makes the canvas recorder fail with "Format error".
@@ -40,6 +43,9 @@ function Join() {
   async function join() {
     setError("");
     try {
+      // Ask for Drive access now, while the click still counts as a user action (Google blocks the popup later).
+      setStatus("Connecting Google Drive…");
+      await driveToken();
       const clips = seq.map((id) => videos.find((v) => v.id === id)!);
       setStatus("Loading clips…");
       const srcs = await Promise.all(clips.map((c) => local(c.url!)));
@@ -54,13 +60,20 @@ function Join() {
       const even = (n: number) => Math.round((n * k) / 2) * 2;
       const blob = await recordClips(srcs.map((src) => ({ src })), even(meta.w), even(meta.h),
         (p) => setStatus(`Joining… ${p}% (plays in real time — keep this tab open)`), track && await local(track));
-      setStatus("Saving…");
+      setStatus("Saving to your Google Drive…");
       const { id, createdAt } = stamp();
-      const getUrl = await uploadFile(blob, `joined-${createdAt}.mp4`);
-      const path = new URL(getUrl).pathname.slice(1); // uploads/…
+      const name = `higgsview-joined-${new Date(createdAt).toISOString().slice(0, 19).replace(/:/g, "-")}.mp4`;
+      const saved = await saveToDrive(blob, name).catch(async (e: Error) => {
+        // Drive failed: don't lose the work, hand the file to the browser instead.
+        const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
+        a.click();
+        await tell("Saved to your computer instead", `Couldn't save to Google Drive (${e.message}), so the joined video was downloaded to your computer.`);
+        return undefined;
+      });
+      if (!saved) { setStatus(""); return; }
       const item: Item = {
         id, kind: "video", modelId: "join", modelName: "Joined video", prompt: `Joined ${clips.length} clips${soundtrack ? " + soundtrack" : ""}`,
-        url: `/api/file?p=${encodeURIComponent(path)}`, state: "success", usd: 0, createdAt,
+        driveLink: saved.link, driveFolder: { link: saved.folder, name: saved.folderName }, state: "success", usd: 0, createdAt,
       };
       await fetch("/api/history", { method: "POST", body: JSON.stringify([item]) });
       await refreshHistory();
@@ -75,7 +88,7 @@ function Join() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
       <header>
         <h1 className="text-3xl font-black uppercase">Join clips</h1>
-        <p className="text-sm text-muted">Click videos in the order you want them. Add a soundtrack (like a generated voiceover) if you like. The joined video is saved to History for good.</p>
+        <p className="text-sm text-muted">Click videos in the order you want them. Add a soundtrack (like a generated voiceover) if you like. The joined video is saved to your Google Drive.</p>
       </header>
 
       <section className="flex flex-wrap items-center gap-2 rounded-2xl bg-panel p-3">

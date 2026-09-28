@@ -8,7 +8,7 @@ export default function Privacy() {
   return (
     <article className="mx-auto w-full max-w-2xl p-6 text-sm leading-relaxed text-fg/85">
       <h1 className="text-3xl font-black uppercase">Privacy Policy</h1>
-      <p className="text-muted">Higgsview, operated by ZeroTouchAI · Last updated September 25, 2026</p>
+      <p className="text-muted">Higgsview, operated by ZeroTouchAI · Last updated September 27, 2026</p>
 
       <p className="mt-4">Higgsview (higgsview.vercel.app) is a free AI video and image studio. This page explains what we store and why.</p>
 
@@ -16,8 +16,11 @@ export default function Privacy() {
       <ul className="mt-2 list-disc space-y-1 pl-5">
         <li><b>Your Google account basics</b> when you sign in with Google: your name, email address and profile picture. We use them only to identify your account and show your initials.</li>
         <li><b>Your Higgsview history</b>: the prompts you write, the settings you choose, links to the results and their cost, so you can see them on any device.</li>
-        <li><b>Files you upload</b> (images, videos, audio) so the AI models can use them. Uploaded files are deleted automatically after 7 days. Videos you join in Higgsview are kept until you ask us to delete them.</li>
+        <li><b>Files you upload</b> (images, videos, audio) so the AI models can use them. Uploaded files are deleted automatically after 7 days.</li>
       </ul>
+
+      <h2 className={h}>Your results</h2>
+      <p className="mt-2">Generated videos, images and audio are hosted by Kie.ai, which deletes them after about 14 days; History shows a countdown, and results disappear from History once they are gone. Videos you join in Higgsview are saved straight to your own Google Drive and are not stored on our servers. Download or save anything you want to keep.</p>
 
       <h2 className={h}>Your Kie.ai API key</h2>
       <p className="mt-2">Your Kie.ai key is stored <b>only in your own browser</b>. It is sent with each request to run the AI model you chose and is never saved on our servers. You can remove it anytime from your Profile.</p>

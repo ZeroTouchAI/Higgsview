@@ -3,7 +3,7 @@ import { ask, askToPay, tell } from "@/components/Dialog";
 import { useEffect, useState } from "react";
 import { lastFrame, uploadFile } from "@/components/Controls";
 import { loadGoogle, saveToDrive, savedFolder } from "@/lib/google";
-import { refreshHistory, removeItem, type Item } from "@/lib/history";
+import { msLeft, refreshHistory, removeItem, unavailable, type Item } from "@/lib/history";
 import Link from "next/link";
 import { appById, appCost, stepsOf } from "@/lib/apps";
 import { byId, estimateUsd } from "@/lib/models";
@@ -31,10 +31,16 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
           <div className="relative grid aspect-video place-items-center bg-black">
             {i.state === "success" && i.kind === "text" ? (
               <div className="absolute inset-0 overflow-y-auto p-3 text-left text-[13px] leading-relaxed whitespace-pre-wrap text-fg/90">{i.text || "(no answer)"}</div>
-            ) : i.state === "success" && i.url ? (
-              i.kind === "audio" ? <audio src={i.url} controls className="w-11/12" />
-              : i.kind === "video" ? <video src={i.url} controls loop playsInline className="size-full object-contain" />
-                : <RetryImg src={i.url} alt={i.prompt} />
+            ) : i.state === "success" && i.url && !unavailable(i) ? (
+              i.kind === "audio" ? <audio src={i.url} controls className="w-11/12" onError={() => markIfGone(i)} />
+              : i.kind === "video" ? <video src={i.url} controls loop playsInline className="size-full object-contain" onError={() => markIfGone(i)} />
+                : <RetryImg src={i.url} alt={i.prompt} onFail={() => markIfGone(i)} />
+            ) : i.state === "success" && i.driveLink ? (
+              <div className="flex flex-col items-center gap-3 p-4 text-center text-sm text-muted">
+                <span className="text-3xl">▲</span>
+                Saved in your Google Drive{i.driveFolder ? ` (${i.driveFolder.name})` : ""}
+                <a href={i.driveLink} target="_blank" rel="noreferrer" className={`${ACTION} ${BLUE}`}>↗ Open in Drive</a>
+              </div>
             ) : i.state === "pending" ? (
               <div className="flex flex-col items-center gap-2 text-sm text-muted">
                 <span className="size-8 animate-spin rounded-full border-2 border-line border-t-lime" />
@@ -55,6 +61,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
               <span className="rounded bg-chip px-1.5 py-0.5">{i.modelName}</span>
               {i.usd != null && <span className="rounded bg-chip px-1.5 py-0.5">${i.usd.toFixed(2)}</span>}
               <span>{new Date(i.createdAt).toLocaleString()}</span>
+              <Expiry i={i} />
               <span className="ml-auto flex gap-1">
                 {onReuse && <button onClick={() => onReuse(i)} title="Load this prompt and model back into the panel so you can tweak it before generating again" className="rounded bg-chip px-2 py-1 hover:text-fg">Reuse</button>}
                 {onContinue && i.lastFrame && <button onClick={() => onContinue(i)} title="Start a new clip from this clip's last frame" className="rounded bg-chip px-2 py-1 hover:text-fg">Continue →</button>}
@@ -63,8 +70,8 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
                 {i.group && i.group !== i.id && i.kind === "video" && (/ · Part \d/.test(i.modelName)
                   ? <Link href={`/join?group=${i.group}`} className="rounded-md bg-lime px-2 py-1 font-semibold text-black hover:brightness-110">⧉ Join both parts into one video</Link>
                   : <Link href={`/join?group=${i.group}`} className="rounded bg-chip px-2 py-1 hover:text-fg">⧉ Join</Link>)}
-                {i.url && <DownloadButton item={i} />}
-                {i.url && <DriveButton item={i} />}
+                {i.url && !unavailable(i) && <DownloadButton item={i} />}
+                {((i.url && !unavailable(i)) || i.driveLink) && <DriveButton item={i} />}
                 <button onClick={async () => (await ask({ title: "Delete from History?", message: "It disappears from your History. Its cost still counts on the Spending page.", confirm: "Delete", tone: "danger" })) && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>
               </span>
             </div>
@@ -100,7 +107,7 @@ function HowItWorks({ kind }: { kind: "video" | "image" | "audio" }) {
 
 // Download = Higgsfield's pink gradient; Google Drive = solid dark blue.
 const PINK = "text-white [background-image:radial-gradient(39.71%_136.54%_at_51.64%_117.31%,#F920D1_0%,#ED1572_100%)]";
-const BLUE = "bg-[#1f3f99] text-white"; // solid dark blue (owner preference)
+const BLUE = "text-white [background-image:radial-gradient(39.71%_136.54%_at_51.64%_117.31%,#22D3EE_0%,#1f3f99_100%)]"; // dark blue with a cyan glow (matches PINK)
 const GOLD = "bg-[linear-gradient(180deg,#F6A43C_0%,#D97A1E_100%)] text-black"; // orange-gold: Regenerate costs money
 const ACTION = "rounded-md px-2 py-1 font-semibold transition hover:brightness-110 disabled:opacity-60";
 
@@ -167,10 +174,32 @@ function DownloadButton({ item }: { item: Item }) {
 }
 
 // Free providers render on request and can time out the first load; remount to retry.
-function RetryImg({ src, alt }: { src: string; alt: string }) {
+function RetryImg({ src, alt, onFail }: { src: string; alt: string; onFail: () => void }) {
   const [tries, setTries] = useState(0);
   return <img key={tries} src={src} alt={alt} className="size-full object-contain"
-    onError={() => tries < 5 && setTimeout(() => setTries(tries + 1), 4000)} />;
+    onError={() => { onFail(); if (tries < 5) setTimeout(() => setTries(tries + 1), 4000); }} />;
+}
+
+// A Kie result that won't load: ask Kie's file host directly. If the file is really gone, the item leaves History.
+const checkedGone = new Set<string>();
+async function markIfGone(i: Item) {
+  if (checkedGone.has(i.id) || msLeft(i) === Infinity) return; // only Kie-hosted files, once per page load
+  checkedGone.add(i.id);
+  const r = await fetch(i.url!, { method: "HEAD", cache: "no-store" }).catch(() => undefined);
+  if (r && [403, 404, 410].includes(r.status)) {
+    await fetch(`/api/history?id=${i.id}&gone=1`, { method: "DELETE" });
+    await refreshHistory();
+  }
+}
+
+// Countdown until Kie deletes the file (~14 days). Hidden once it's saved to Google Drive.
+function Expiry({ i }: { i: Item }) {
+  const ms = msLeft(i);
+  if (ms === Infinity || i.driveLink || i.state !== "success") return null;
+  const h = ms / 36e5;
+  const label = h >= 48 ? `${Math.floor(h / 24)} days left` : h >= 1 ? `${Math.floor(h)}h left` : "< 1h left";
+  const tone = h < 24 ? "bg-red-500/20 text-red-300" : h < 72 ? "bg-amber-500/20 text-amber-300" : "bg-chip";
+  return <span title="Kie.ai deletes results after about 14 days. Download it or save it to Google Drive to keep it." className={`rounded px-1.5 py-0.5 ${tone}`}>⏳ {label}</span>;
 }
 
 function DriveButton({ item }: { item: Item }) {

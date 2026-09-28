@@ -57,8 +57,11 @@ export async function POST(req: Request) {
   return Response.json(next);
 }
 
-// DELETE hides the item (kept for the Spending page).
+// DELETE hides the item (kept for the Spending page), or with ?gone=1 marks its file as expired at Kie.
 export async function DELETE(req: Request) {
-  const id = new URL(req.url).searchParams.get("id");
-  return Response.json(await mutate((all) => all.map((i) => (i.id === id ? { ...i, hidden: true } : i))));
+  const q = new URL(req.url).searchParams;
+  const id = q.get("id");
+  // ?gone=1: the browser found the result file deleted at Kie; the item leaves History (unless saved to Drive).
+  const change = q.get("gone") ? { gone: true } : { hidden: true };
+  return Response.json(await mutate((all) => all.map((i) => (i.id === id ? { ...i, ...change } : i))));
 }

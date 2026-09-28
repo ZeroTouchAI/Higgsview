@@ -3,7 +3,7 @@ import { useEffect, useReducer, useState, useSyncExternalStore } from "react";
 import type { Profile } from "@/lib/auth";
 import { initialsOf } from "@/components/AccountMenu";
 import { ConnectKie, getKey, setKey } from "@/components/KeyGate";
-import { canPickFolder, folderLink, pickFolder, savedFolder, setSavedFolder } from "@/lib/google";
+import { canPickFolder, driveFolderUrl, folderLink, pickFolder, savedFolder, setSavedFolder } from "@/lib/google";
 
 const FIELDS: [keyof Profile, string, string][] = [["firstName", "First name", "given-name"], ["lastName", "Last name", "family-name"]];
 const noop = () => () => {};
@@ -62,6 +62,7 @@ export default function ProfilePage() {
             : <span className="font-semibold text-fg">My Drive › Higgsview</span>}.
         </p>
         <div className="flex flex-wrap gap-2">
+          <a href={driveFolderUrl()} target="_blank" rel="noreferrer" className="rounded-xl px-4 py-2 text-sm font-semibold text-white [background-image:radial-gradient(39.71%_136.54%_at_51.64%_117.31%,#22D3EE_0%,#1f3f99_100%)] hover:brightness-110">↗ Open my Drive folder</a>
           {canPickFolder && <button onClick={chooseFolder} className="rounded-xl bg-chip px-4 py-2 text-sm font-semibold hover:bg-line">Choose folder…</button>}
           {folder && <button onClick={() => { setSavedFolder(undefined); refresh(); }} className="rounded-xl bg-chip px-4 py-2 text-sm font-semibold hover:bg-line">Use My Drive › Higgsview</button>}
         </div>

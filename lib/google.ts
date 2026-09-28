@@ -47,6 +47,10 @@ const FOLDER = "hv_drive_folder";
 export const savedFolder = (): DriveFolder | undefined => { try { return JSON.parse(localStorage.getItem(FOLDER) ?? "null") ?? undefined; } catch { return undefined; } };
 export const setSavedFolder = (f?: DriveFolder) => { try { if (f) localStorage.setItem(FOLDER, JSON.stringify(f)); else localStorage.removeItem(FOLDER); } catch {} };
 export const folderLink = (id: string) => `https://drive.google.com/drive/folders/${id}`;
+// The default My Drive/Higgsview folder's id, remembered after the first save so Profile can link to it.
+const DEFAULT = "hv_drive_default";
+const defaultFolderId = () => { try { return localStorage.getItem(DEFAULT) ?? undefined; } catch { return undefined; } };
+export const driveFolderUrl = () => { const id = savedFolder()?.id ?? defaultFolderId(); return id ? folderLink(id) : "https://drive.google.com/drive/my-drive"; };
 
 // Google Picker: lets the user choose any folder in their Drive (picking it also gives Higgsview access to
 // save there under the drive.file scope). Needs NEXT_PUBLIC_GOOGLE_API_KEY (Picker API enabled on it).
@@ -80,7 +84,7 @@ export async function pickFolder(): Promise<DriveFolder | undefined> {
 }
 
 // Saves a result into the chosen folder (default My Drive/Higgsview); returns links to the file and its folder.
-export async function saveToDrive(url: string, name: string): Promise<{ link: string; folder: string; folderName: string }> {
+export async function saveToDrive(file: string | Blob, name: string): Promise<{ link: string; folder: string; folderName: string }> {
   const auth = { Authorization: `Bearer ${await driveToken()}` };
   const api = "https://www.googleapis.com/drive/v3/files";
   let target = savedFolder();
@@ -90,8 +94,9 @@ export async function saveToDrive(url: string, name: string): Promise<{ link: st
       ?? (await fetch(`${api}?fields=id`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" },
         body: JSON.stringify({ name: "Higgsview", mimeType: "application/vnd.google-apps.folder" }) }).then((r) => r.json())).id;
     target = { id: id!, name: "My Drive › Higgsview" };
+    try { localStorage.setItem(DEFAULT, id!); } catch {}
   }
-  const blob = await fetch(url, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error("Couldn't load the file"); return r.blob(); });
+  const blob = typeof file !== "string" ? file : await fetch(file, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error("Couldn't load the file"); return r.blob(); });
   // Resumable upload: works for large videos (simple multipart uploads are limited to 5 MB).
   const start = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink", {
     method: "POST", headers: { ...auth, "Content-Type": "application/json", "X-Upload-Content-Type": blob.type || "application/octet-stream" },
@@ -102,7 +107,7 @@ export async function saveToDrive(url: string, name: string): Promise<{ link: st
     if (savedFolder()) { setSavedFolder(undefined); throw new Error("Couldn't save to your chosen folder (deleted?). Try again to use My Drive › Higgsview."); }
     throw new Error(`Drive refused the upload (${start.status})`);
   }
-  const file = await fetch(session, { method: "PUT", body: blob }).then((r) => r.json());
-  if (!file.webViewLink) throw new Error(file.error?.message ?? "Drive upload failed");
-  return { link: file.webViewLink, folder: folderLink(target.id), folderName: target.name };
+  const saved = await fetch(session, { method: "PUT", body: blob }).then((r) => r.json());
+  if (!saved.webViewLink) throw new Error(saved.error?.message ?? "Drive upload failed");
+  return { link: saved.webViewLink, folder: folderLink(target.id), folderName: target.name };
 }

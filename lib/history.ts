@@ -24,6 +24,7 @@ export type Item = {
   params?: Params; // exact settings of a studio generation (used by "Regenerate")
   next?: { video: string; label: string }; // split video: the next part starts when this one finishes, with its last frame as an extra reference
   hidden?: boolean; // "deleted" from History but kept so Spending stays accurate
+  gone?: boolean; // the result file no longer exists at Kie (checked when it failed to load)
   createdAt: number;
 };
 
@@ -45,6 +46,14 @@ async function migrate() {
   if (res.ok) { try { localStorage.removeItem("hv_history"); } catch {} }
 }
 
+// Kie keeps generated files for a limited time (docs promise 24h; in practice about two weeks). Results only
+// Kie hosts get a countdown and drop out of History once gone, unless they were saved to Google Drive.
+export const KIE_KEEP_DAYS = 14;
+const kieHosted = (i: Item) => !!i.url && /^https:\/\/[^/]*(aiquickdraw\.com|kie\.ai|redpandaai\.co)\//.test(i.url);
+export const msLeft = (i: Item) => (kieHosted(i) ? i.createdAt + KIE_KEEP_DAYS * 864e5 - Date.now() : Infinity);
+export const unavailable = (i: Item) => !!i.gone || msLeft(i) <= 0; // the file itself can't be opened any more
+const listed = (i: Item) => !i.hidden && (!unavailable(i) || !!i.driveLink); // Drive copies stay visible
+
 let pollers = 0, poll: ReturnType<typeof setInterval> | undefined;
 export function useHistory(includeHidden = false) {
   const [items, setItems] = useState(cache);
@@ -61,5 +70,5 @@ export function useHistory(includeHidden = false) {
     if (pollers++ === 0) poll = setInterval(refreshHistory, 5000);
     return () => { if (--pollers === 0) clearInterval(poll); };
   }, [pending]);
-  return includeHidden ? items : items.filter((i) => !i.hidden);
+  return includeHidden ? items : items.filter(listed);
 }

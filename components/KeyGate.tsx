@@ -13,8 +13,7 @@ export const setKey = (k: string) => {
 };
 
 // ponytail: patches window.fetch once so every existing fetch("/api/…") call carries the key; an api() wrapper
-// at each call site would be cleaner if this ever misbehaves. /api/file is skipped: it redirects to Blob storage,
-// and the key must not follow that redirect.
+// at each call site would be cleaner if this ever misbehaves.
 if (typeof window !== "undefined" && !("hvKeyPatch" in window)) {
   const orig = window.fetch.bind(window);
   Object.assign(window, { hvKeyPatch: true });
@@ -22,7 +21,7 @@ if (typeof window !== "undefined" && !("hvKeyPatch" in window)) {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const path = url.startsWith(location.origin) ? url.slice(location.origin.length) : url;
     const key = getKey();
-    if (key && path.startsWith("/api/") && !path.startsWith("/api/file")) {
+    if (key && path.startsWith("/api/")) {
       const h = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
       if (!h.has("x-kie-key")) h.set("x-kie-key", key);
       init = { ...init, headers: h };
