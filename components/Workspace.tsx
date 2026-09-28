@@ -1,5 +1,5 @@
 "use client";
-import { askToPay } from "@/components/Dialog";
+import { ask, askToPay } from "@/components/Dialog";
 import { useMemo, useState } from "react";
 import Badge from "@/components/Badge";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -39,6 +39,8 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
   const resolution = model.resolutions.includes(res) ? res : defaultRes(model);
   const [audio, setAudio] = useState(true);
   const [media, setMedia] = useState<Media>({ start: sp.get("start") ?? undefined });
+  // Genjutsu Real People: 15s (one job, video trimmed) or 30s (opt-in: made as 2 parts that are joined afterwards).
+  const [long, setLong] = useState(false);
   // Higgsfield-style "Images" area (Create video + Image pages): one list of images, used as references when the
   // model supports them, otherwise image 1 = first frame and image 2 = last frame. Plus reference videos (Seedance, MiniMax).
   const [images, setImages] = useState<string[]>(sp.get("start") ? [sp.get("start")!] : []);
@@ -62,7 +64,11 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
   const label = (k: "start" | "end" | "video", fallback: string) => model.labels?.[k] ?? fallback;
 
   async function generate() {
-    if (cost > 2 && !(await askToPay(cost))) return;
+    if (media.video2) {
+      // 30s = two separate 15s jobs: the second part can't see the first, so details (e.g. clothes) can change.
+      if (!(await ask({ title: "30 seconds = 2 parts", cost, confirm: `I understand · Pay ≈ $${cost.toFixed(2)}`, tone: "pay",
+        message: "Kling can only make 15 seconds at a time, so your video is made as two 15-second parts. Part 2 starts after part 1 and gets a still from its last moment, but it can't see everything: things that weren't visible (like someone's pants or shoes) may look different in part 2.\n\nWhen both are done, press “Join both parts into one video”." }))) return;
+    } else if (cost > 2 && !(await askToPay(cost))) return;
     setError("");
     setBusy(true);
     // With reference images, tell the video model to keep them faithful (brand colors and logos were drifting).
@@ -130,10 +136,24 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
         {!extendFrom && <p className="px-1 text-xs text-muted">{model.desc}</p>}
 
         {/* Inputs */}
+        {model.videoSplit && (
+          <div className="flex flex-col gap-1 rounded-xl bg-chip p-2.5">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted">
+              Length
+              {[false, true].map((l) => (
+                <button key={String(l)} onClick={() => { if (l !== long) { setLong(l); setMedia((m) => ({ ...m, video: undefined, video2: undefined, videoSecs: undefined })); } }}
+                  className={`rounded-lg px-3 py-1 font-bold ${long === l ? "bg-lime text-black" : "bg-line text-fg hover:bg-white/20"}`}>{l ? "30 s" : "15 s"}</button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted">{long
+              ? "30 s is made as 2 parts of 15 s that you join afterwards. Details the first part never showed (like clothes) can change in part 2."
+              : "One job, up to 15 s. Longer videos are trimmed to the first 15 s."}{media.video ? " Changing the length clears the uploaded video." : ""}</p>
+          </div>
+        )}
         {((model.frames !== "none" && !unified) || model.needs?.includes("video")) && (
           <div className="grid grid-cols-2 gap-2">
             {model.needs?.includes("video") && (
-              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs} minSide={model.videoMinSide} split={model.videoSplit}
+              <Upload label={label("video", "Input video")} accept="video/*" value={media.video} maxPixels={model.videoMaxPixels} maxSecs={model.videoMaxSecs} minSide={model.videoMinSide} split={model.videoSplit && long}
                 onChange={(video, videoSecs, video2, ratio) => {
                   setMedia((m) => ({ ...m, video, videoSecs, video2 }));
                   // Output shape follows the uploaded video (a 9:16 output from a 16:9 video crops people out).
