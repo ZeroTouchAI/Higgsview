@@ -46,6 +46,10 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
   const [images, setImages] = useState<string[]>(sp.get("start") ? [sp.get("start")!] : []);
   const [refVids, setRefVids] = useState<{ url: string; secs: number }[]>([]);
   const [asFrame, setAsFrame] = useState(!!sp.get("start")); // "Start the video from image 1" (exact first frame)
+  // Brand name: AI video can't spell reliably, so either lock the spelling in the prompt or keep text out entirely
+  // (and add it afterwards with "✎ Add text", which draws it exactly).
+  const [brand, setBrand] = useState("");
+  const [noText, setNoText] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [picker, setPicker] = useState(false);
@@ -74,7 +78,10 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
     // With reference images, tell the video model to keep them faithful (brand colors and logos were drifting).
     const faithful = unified && !framesMode && images.length && model.mode === "create"
       ? "Use the reference images faithfully: keep their exact colors, logos, text, products and people." : "";
-    const fullPrompt = [prompt.trim(), preset.prompt, faithful].filter(Boolean).join(" ");
+    const spelling = model.mode !== "create" ? "" : noText
+      ? "Do not show any written text, letters, numbers, words, captions or logos anywhere in the video."
+      : brand.trim() ? `The brand name is "${brand.trim()}", spelled exactly ${brand.trim().toUpperCase().split("").filter((c) => c !== " ").join("-")}. Any on-screen text must match this spelling letter for letter: never add, drop, swap or change letters. Keep on-screen text short, large and simple.` : "";
+    const fullPrompt = [prompt.trim(), preset.prompt, faithful, spelling].filter(Boolean).join(" ");
     const pics = unified ? (framesMode ? { start: images[0], end: model.frames === "start-end" ? images[1] : undefined } : { refs: images, refVideos: refVids.map((v) => v.url) })
       : { start: media.start, end: media.end, refs: model.refs ? images : undefined }; // Edit / Motion / Genjutsu tiles
     const params = {
@@ -178,6 +185,20 @@ export default function Workspace({ kind }: { kind: "video" | "image" | "audio" 
               : kind === "image" ? "Refer to them in your prompt as “image 1”, “image 2”… (edit, combine, restyle)"
               : "Used as references: say “image 1”, “image 2”… in your prompt. Their colors, logos and people are kept."}
             frameToggle={unified && !!model.refs && canFrame ? { on: asFrame, set: setAsFrame } : undefined} />
+        )}
+
+        {model.mode === "create" && (
+          <div className="flex flex-col gap-1.5 rounded-xl bg-chip p-2.5">
+            <label className="flex flex-col gap-1 text-xs font-semibold text-muted">Brand name (optional)
+              <input value={brand} onChange={(e) => setBrand(e.target.value)} disabled={noText} placeholder="e.g. HIGGSVIEW" maxLength={40}
+                className="rounded-lg bg-bg/60 px-2.5 py-1.5 text-sm text-fg outline-none focus:ring-2 focus:ring-lime disabled:opacity-40" />
+            </label>
+            <label className="flex items-center gap-2 text-[11px] text-muted">
+              <input type="checkbox" checked={noText} onChange={(e) => setNoText(e.target.checked)} className="accent-lime" />
+              No text in the video (add your exact name afterwards with ✎ Add text)
+            </label>
+            <p className="text-[11px] text-muted">AI video can misspell words. For a perfect name, use ✎ Add text on the finished video.</p>
+          </div>
         )}
 
         {/* Prompt */}

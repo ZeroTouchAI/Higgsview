@@ -116,7 +116,8 @@ async function toJpeg(f: File): Promise<File> {
 // start–end slice) into one w×h MP4 at a steady 30 fps, keeping audio, plus an optional soundtrack mixed in.
 // Used to resize/trim uploads, split long videos and join clips.
 // ponytail: plays in real time (a 30s result takes ~30s) and needs MP4 MediaRecorder (Chrome/Edge); ffmpeg.wasm if other browsers matter.
-export async function recordClips(clips: { src: string; start?: number; end?: number }[], w: number, h: number, progress: (pct: number) => void, soundtrack?: string): Promise<Blob> {
+export async function recordClips(clips: { src: string; start?: number; end?: number }[], w: number, h: number, progress: (pct: number) => void, soundtrack?: string,
+  overlay?: (ctx: CanvasRenderingContext2D, t: number, total: number) => void): Promise<Blob> { // overlay: drawn on every frame (t = seconds into the result)
   const mimeType = ["video/mp4;codecs=avc1.640028,mp4a.40.2", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
   if (!mimeType) throw new Error("This browser can't convert video. Use Chrome or Edge.");
   // Load every clip first so there are no pauses between them.
@@ -168,6 +169,7 @@ export async function recordClips(clips: { src: string; start?: number; end?: nu
     const c = vids[k];
     if (rec.state === "recording") {
       draw(c.v);
+      overlay?.(ctx, before + c.v.currentTime - c.start, total);
       track.requestFrame();
       progress(Math.min(99, Math.round(((before + c.v.currentTime - c.start) / total) * 100)));
     }

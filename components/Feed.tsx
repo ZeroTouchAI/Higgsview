@@ -82,6 +82,7 @@ export default function Feed({ items, kind, onReuse, onContinue, onExtend }: { i
                 {i.group && i.group !== i.id && i.kind === "video" && (/ · Part \d/.test(i.modelName)
                   ? <Link href={`/join?group=${i.group}`} className="rounded-md bg-lime px-2 py-1 font-semibold text-black hover:brightness-110">⧉ Join both parts into one video</Link>
                   : <Link href={`/join?group=${i.group}`} className="rounded bg-chip px-2 py-1 hover:text-fg">⧉ Join</Link>)}
+                {i.kind === "video" && i.url && !unavailable(i) && <Link href={`/brand?id=${i.id}`} title="Put your exact brand name, tagline or logo on this video (always spelled right)" className="rounded-md bg-chip px-2 py-1 font-semibold hover:text-fg">✎ Add text</Link>}
                 {i.url && !unavailable(i) && <DownloadButton item={i} />}
                 {((i.url && !unavailable(i)) || i.driveLink) && <DriveButton item={i} />}
                 <button onClick={async () => (await ask({ title: "Delete from History?", message: "It disappears from your History. Its cost still counts on the Spending page.", confirm: "Delete", tone: "danger" })) && removeItem(i.id)} aria-label="Delete" className="rounded bg-chip px-2 py-1 hover:text-red-300">✕</button>
