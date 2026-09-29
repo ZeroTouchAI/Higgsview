@@ -16,4 +16,4 @@ export async function proxy(req: NextRequest) {
   return NextResponse.redirect(new URL("/login", req.url));
 }
 
-export const config = { matcher: ["/((?!api/cleanup|_next|favicon.ico|thumbs).*)"] };
+export const config = { matcher: ["/((?!api/cleanup|_next|favicon.ico|icon.svg|apple-icon.png|thumbs).*)"] };
