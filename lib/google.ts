@@ -84,30 +84,53 @@ export async function pickFolder(): Promise<DriveFolder | undefined> {
 }
 
 // Saves a result into the chosen folder (default My Drive/Higgsview); returns links to the file and its folder.
+// A dropped connection shouldn't fail a 30 MB save: each step gets up to 3 tries, and the error says which step broke.
+async function attempt<T>(what: string, fn: () => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (let n = 0; n < 3; n++) {
+    try { return await fn(); } catch (e) {
+      last = e;
+      if (e instanceof Stop) throw e; // a real answer (expired sign-in, missing folder): retrying won't help
+      await new Promise((r) => setTimeout(r, 1500 * (n + 1)));
+    }
+  }
+  throw new Error(`${what} (${last instanceof Error ? last.message : "network error"}). Check your connection and try again.`);
+}
+class Stop extends Error {}
+
 export async function saveToDrive(file: string | Blob, name: string): Promise<{ link: string; folder: string; folderName: string }> {
   const auth = { Authorization: `Bearer ${await driveToken()}` };
   const api = "https://www.googleapis.com/drive/v3/files";
+  // Google answers 401 when the hour-long Drive permission has lapsed: forget it so the next click asks again.
+  const check = (r: Response) => { if (r.status === 401) { drive = undefined; throw new Stop("Google Drive access expired. Press the button again to reconnect."); } return r; };
   let target = savedFolder();
   if (!target) {
-    const q = encodeURIComponent("name='Higgsview' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-    const id: string | undefined = (await fetch(`${api}?q=${q}&fields=files(id)`, { headers: auth }).then((r) => r.json())).files?.[0]?.id
-      ?? (await fetch(`${api}?fields=id`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Higgsview", mimeType: "application/vnd.google-apps.folder" }) }).then((r) => r.json())).id;
-    target = { id: id!, name: "My Drive › Higgsview" };
-    try { localStorage.setItem(DEFAULT, id!); } catch {}
+    const id = await attempt("Couldn't reach Google Drive", async () => {
+      const q = encodeURIComponent("name='Higgsview' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+      const found: string | undefined = (await fetch(`${api}?q=${q}&fields=files(id)`, { headers: auth }).then(check).then((r) => r.json())).files?.[0]?.id;
+      return found ?? (await fetch(`${api}?fields=id`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Higgsview", mimeType: "application/vnd.google-apps.folder" }) }).then(check).then((r) => r.json())).id as string;
+    });
+    target = { id, name: "My Drive › Higgsview" };
+    try { localStorage.setItem(DEFAULT, id); } catch {}
   }
-  const blob = typeof file !== "string" ? file : await fetch(file, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error("Couldn't load the file"); return r.blob(); });
-  // Resumable upload: works for large videos (simple multipart uploads are limited to 5 MB).
-  const start = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink", {
-    method: "POST", headers: { ...auth, "Content-Type": "application/json", "X-Upload-Content-Type": blob.type || "application/octet-stream" },
-    body: JSON.stringify({ name, parents: [target.id] }),
+  const folder = target;
+  const blob = typeof file !== "string" ? file : await attempt("Couldn't download the file from Kie.ai", () =>
+    fetch(file, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Stop("The file is no longer available at Kie.ai."); return r.blob(); }));
+  // Resumable upload: works for large videos (simple multipart uploads are limited to 5 MB). A failed try starts a new upload.
+  const saved = await attempt("The upload to Google Drive was interrupted", async () => {
+    const start = check(await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink", {
+      method: "POST", headers: { ...auth, "Content-Type": "application/json", "X-Upload-Content-Type": blob.type || "application/octet-stream" },
+      body: JSON.stringify({ name, parents: [folder.id] }),
+    }));
+    const session = start.headers.get("Location");
+    if (!session) {
+      if (savedFolder()) { setSavedFolder(undefined); throw new Stop("Couldn't save to your chosen folder (deleted?). Try again to use My Drive › Higgsview."); }
+      throw new Stop(`Google Drive refused the upload (${start.status}).`);
+    }
+    const done = await fetch(session, { method: "PUT", body: blob }).then(check).then((r) => r.json());
+    if (!done.webViewLink) throw new Stop(done.error?.message ?? "Google Drive didn't confirm the upload.");
+    return done as { webViewLink: string };
   });
-  const session = start.headers.get("Location");
-  if (!session) {
-    if (savedFolder()) { setSavedFolder(undefined); throw new Error("Couldn't save to your chosen folder (deleted?). Try again to use My Drive › Higgsview."); }
-    throw new Error(`Drive refused the upload (${start.status})`);
-  }
-  const saved = await fetch(session, { method: "PUT", body: blob }).then((r) => r.json());
-  if (!saved.webViewLink) throw new Error(saved.error?.message ?? "Drive upload failed");
-  return { link: saved.webViewLink, folder: folderLink(target.id), folderName: target.name };
+  return { link: saved.webViewLink, folder: folderLink(folder.id), folderName: folder.name };
 }

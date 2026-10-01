@@ -259,6 +259,7 @@ function DriveButton({ item }: { item: Item }) {
     } catch (e) {
       setErr((e as Error).message);
       setState("error");
+      await tell("Couldn't save to Google Drive", (e as Error).message);
     }
   }
   return (
