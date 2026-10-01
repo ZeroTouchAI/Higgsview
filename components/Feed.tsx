@@ -3,6 +3,7 @@ import { ask, askToPay, tell } from "@/components/Dialog";
 import { useEffect, useState } from "react";
 import { lastFrame, uploadFile } from "@/components/Controls";
 import { loadGoogle, saveToDrive, savedFolder } from "@/lib/google";
+import { kieBlob } from "@/lib/kieFile";
 import { msLeft, refreshHistory, removeItem, unavailable, type Item } from "@/lib/history";
 import Link from "next/link";
 import { appById, appCost, stepsOf } from "@/lib/apps";
@@ -195,7 +196,7 @@ function DownloadButton({ item }: { item: Item }) {
   async function save() {
     setBusy(true);
     try {
-      const blob = await fetch(item.url!, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(); return r.blob(); });
+      const blob = await kieBlob(item.url!);
       const ext = item.url!.match(/\.(\w{3,4})(\?|$)/)?.[1] ?? (item.kind === "video" ? "mp4" : item.kind === "audio" ? "mp3" : "jpg");
       const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `higgsview-${item.modelId}-${item.id.slice(0, 6)}.${ext}` });
       a.click();

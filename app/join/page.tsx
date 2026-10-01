@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { refreshHistory, useHistory, type Item } from "@/lib/history";
 import { recordClips } from "@/components/Controls";
 import { driveToken, saveToDrive } from "@/lib/google";
+import { kieBlob } from "@/lib/kieFile";
 import { tell } from "@/components/Dialog";
 
 // Join clips: stitch several videos (script scenes, long-video parts, anything in History) into one MP4 in the
@@ -12,11 +13,7 @@ import { tell } from "@/components/Dialog";
 const stamp = () => ({ id: crypto.randomUUID(), createdAt: Date.now() }); // outside the component (purity lint)
 // Fresh copy as a local blob: the History cards already loaded these files without CORS, and Chrome reuses
 // that cached copy (no Access-Control header), which makes the canvas recorder fail with "Format error".
-const local = async (u: string) => {
-  const r = await fetch(u, { cache: "no-store" });
-  if (!r.ok) throw new Error("Couldn't load a clip (Kie links expire after about 2 weeks)");
-  return URL.createObjectURL(await r.blob());
-};
+const local = async (u: string) => URL.createObjectURL(await kieBlob(u));
 const order = (i: Item) => Number(i.modelName.match(/(?:Scene|Part) (\d+)/)?.[1] ?? 0);
 
 export default function JoinPage() {

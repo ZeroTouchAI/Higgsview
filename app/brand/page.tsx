@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { refreshHistory, useHistory, type Item } from "@/lib/history";
 import { recordClips } from "@/components/Controls";
 import { driveToken, saveToDrive } from "@/lib/google";
+import { kieBlob } from "@/lib/kieFile";
 import { tell } from "@/components/Dialog";
 
 // Add text: puts the exact brand name / tagline / URL (and optionally a logo) on top of a finished video.
@@ -12,7 +13,7 @@ import { tell } from "@/components/Dialog";
 type Opts = { title: string; sub: string; color: string; pos: "top" | "center" | "bottom"; when: "all" | "end"; endSecs: number };
 const COLORS = ["#ffffff", "#0b0b0b", "#d1fe17", "#F920D1", "#22D3EE"];
 const stamp = () => ({ id: crypto.randomUUID(), createdAt: Date.now() }); // outside the component (purity lint)
-const local = async (u: string) => URL.createObjectURL(await fetch(u, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error("Couldn't load the video (it may have expired at Kie)"); return r.blob(); }));
+const local = async (u: string) => URL.createObjectURL(await kieBlob(u));
 
 function paint(ctx: CanvasRenderingContext2D, t: number, total: number, o: Opts, logo?: HTMLImageElement) {
   const { width: w, height: h } = ctx.canvas;

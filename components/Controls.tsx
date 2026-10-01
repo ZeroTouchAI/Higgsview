@@ -1,4 +1,5 @@
 "use client";
+import { kieBlob } from "@/lib/kieFile";
 import { useRef, useState } from "react";
 
 // Uploads straight from the browser to our Blob store via a presigned URL (any size), then returns a URL Kie can read.
@@ -84,9 +85,7 @@ export function Upload({ label, accept, value, onChange, optional, maxPixels, ma
 // Browser → private Blob store (presigned PUT). Returns a 24h URL that Kie can read.
 // Last frame of a video as a JPG (fresh fetch: a copy cached without CORS would taint the canvas).
 export async function lastFrame(url: string): Promise<File> {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error("Couldn't load the finished part");
-  const v = Object.assign(document.createElement("video"), { muted: true, preload: "auto", src: URL.createObjectURL(await r.blob()) });
+  const v = Object.assign(document.createElement("video"), { muted: true, preload: "auto", src: URL.createObjectURL(await kieBlob(url)) });
   await new Promise((ok, fail) => { v.onloadedmetadata = ok; v.onerror = fail; });
   v.currentTime = Math.max(0, v.duration - 0.2);
   await new Promise((ok) => (v.onseeked = ok));

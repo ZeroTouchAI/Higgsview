@@ -1,4 +1,5 @@
 // Google Identity Services (sign-in button + Drive access tokens), loaded once on demand in the browser.
+import { kieBlob } from "@/lib/kieFile";
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 type TokenResponse = { access_token?: string; expires_in?: number; error?: string };
@@ -115,8 +116,7 @@ export async function saveToDrive(file: string | Blob, name: string): Promise<{ 
     try { localStorage.setItem(DEFAULT, id); } catch {}
   }
   const folder = target;
-  const blob = typeof file !== "string" ? file : await attempt("Couldn't download the file from Kie.ai", () =>
-    fetch(file, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Stop("The file is no longer available at Kie.ai."); return r.blob(); }));
+  const blob = typeof file !== "string" ? file : await kieBlob(file).catch((e: Error) => { throw new Stop(e.message); }); // has its own retries + fallback
   // Resumable upload: works for large videos (simple multipart uploads are limited to 5 MB). A failed try starts a new upload.
   const saved = await attempt("The upload to Google Drive was interrupted", async () => {
     const start = check(await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink", {
